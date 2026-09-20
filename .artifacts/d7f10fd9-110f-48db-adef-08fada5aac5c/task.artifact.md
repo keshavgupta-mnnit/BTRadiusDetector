@@ -1,0 +1,6 @@
+- [ ] Research: Verify if `ScanFilter` with `setDeviceAddress` has known issues on certain Android versions.
+- [ ] UI: Implement `HeadingCard` in `TrackingScreen.kt`.
+- [ ] UI: Implement `SignalStrengthBar` in `TrackingScreen.kt`.
+- [ ] UI: Implement `SonarMarkers` in `TrackingScreen.kt`.
+- [ ] Data: Refactor `BleRssiRepository.kt` to improve tracking reliability.
+- [ ] Verification: Build and check previews.
