@@ -9,58 +9,89 @@ import android.bluetooth.BluetoothProfile
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import com.kglabs28.btradiusdetector.data.util.MovingAverageFilter
 import com.kglabs28.btradiusdetector.domain.model.BluetoothDeviceModel
+import com.kglabs28.btradiusdetector.utils.Constants
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 
-/**
- * Repository for handling BLE scanning and providing smoothed RSSI values.
- */
 class BleRssiRepository(private val context: Context) {
     private val bluetoothManager by lazy {
         context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
     }
-    private val bluetoothAdapter: BluetoothAdapter? by lazy {
-        bluetoothManager.adapter
-    }
-    private val scanner by lazy {
-        bluetoothAdapter?.bluetoothLeScanner
-    }
+    private val bluetoothAdapter: BluetoothAdapter? by lazy { bluetoothManager.adapter }
+    private val scanner by lazy { bluetoothAdapter?.bluetoothLeScanner }
 
-    private val filter = MovingAverageFilter(5)
+    private val filter = MovingAverageFilter(Constants.RSSI_SMOOTHING_WINDOW)
 
-    /**
-     * Returns a list of bonded (paired) devices.
-     */
     @SuppressLint("MissingPermission")
     fun getBondedDevices(): List<BluetoothDeviceModel> {
         return bluetoothAdapter?.bondedDevices?.map { device ->
             BluetoothDeviceModel(
                 address = device.address,
                 name = device.name ?: "Unknown Device",
-                deviceClass = device.bluetoothClass?.majorDeviceClass ?: BluetoothClass.Device.Major.UNCATEGORIZED,
+                deviceClass = device.bluetoothClass?.majorDeviceClass
+                    ?: BluetoothClass.Device.Major.UNCATEGORIZED,
+                minorDeviceClass = device.bluetoothClass?.deviceClass ?: 0,
                 isConnected = isDeviceConnected(device)
             )
         } ?: emptyList()
     }
 
     @SuppressLint("MissingPermission")
-    private fun isDeviceConnected(device: BluetoothDevice): Boolean {
-        // Only use GATT for checking connection status as per user request to avoid profile unsupported exceptions
-        return bluetoothManager.getConnectionState(device, BluetoothProfile.GATT) == BluetoothProfile.STATE_CONNECTED
+    fun getBondedDevicesFlow(): Flow<List<BluetoothDeviceModel>> = callbackFlow {
+        trySend(getBondedDevices())
+
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(ctx: Context?, intent: Intent?) {
+                trySend(getBondedDevices())
+            }
+        }
+
+        val intentFilter = IntentFilter().apply {
+            addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
+            addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)
+            addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED)
+        }
+        context.registerReceiver(receiver, intentFilter)
+
+        awaitClose { context.unregisterReceiver(receiver) }
     }
 
     /**
-     * Returns a Flow of smoothed RSSI values for the specified target device.
+     * Public, address-based connection check — used by DisconnectCheckWorker
+     * to re-verify a device's state after the debounce delay, without needing
+     * a live BluetoothDevice reference at that point.
      */
     @SuppressLint("MissingPermission")
+    fun isConnected(address: String): Boolean {
+        val device = bluetoothAdapter?.bondedDevices?.find { it.address == address } ?: return false
+        return isDeviceConnected(device)
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun isDeviceConnected(device: BluetoothDevice): Boolean {
+        val profiles = intArrayOf(
+            BluetoothProfile.GATT,
+            BluetoothProfile.A2DP,
+            BluetoothProfile.HEADSET
+        )
+        return profiles.any { profile ->
+            try {
+                bluetoothManager.getConnectionState(device, profile) == BluetoothProfile.STATE_CONNECTED
+            } catch (_: Exception) {
+                false
+            }
+        }
+    }
+
+    @SuppressLint("MissingPermission")
     fun getRssiFlow(targetDeviceAddress: String): Flow<Int> = callbackFlow {
-        // We avoid using ScanFilter with setDeviceAddress on the scanner level 
-        // because it can be unreliable on some Android versions/devices, 
-        // especially for bonded devices using RPAs.
         val settings = ScanSettings.Builder()
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
             .build()
@@ -68,8 +99,7 @@ class BleRssiRepository(private val context: Context) {
         val callback = object : ScanCallback() {
             override fun onScanResult(callbackType: Int, result: ScanResult) {
                 if (result.device.address == targetDeviceAddress) {
-                    val smoothedRssi = filter.add(result.rssi).toInt()
-                    trySend(smoothedRssi)
+                    trySend(filter.add(result.rssi).toInt())
                 }
             }
 
@@ -83,7 +113,6 @@ class BleRssiRepository(private val context: Context) {
             return@callbackFlow
         }
 
-        // Start scan without filter and filter in onScanResult
         scanner?.startScan(null, settings, callback)
 
         awaitClose {

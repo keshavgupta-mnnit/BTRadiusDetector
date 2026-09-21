@@ -1,4 +1,4 @@
-package com.kglabs28.btradiusdetector.util
+package com.kglabs28.btradiusdetector.utils
 
 import org.junit.Assert.assertEquals
 import org.junit.Test

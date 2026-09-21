@@ -43,7 +43,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -66,8 +65,8 @@ import com.kglabs28.btradiusdetector.ui.MainViewModel
 import com.kglabs28.btradiusdetector.ui.theme.SonarCyan
 import com.kglabs28.btradiusdetector.ui.theme.BTRadiusDetectorTheme
 import com.kglabs28.btradiusdetector.ui.theme.SonarGreen
-import com.kglabs28.btradiusdetector.util.DistanceCategory
-import com.kglabs28.btradiusdetector.util.getDistanceCategory
+import com.kglabs28.btradiusdetector.utils.DistanceCategory
+import com.kglabs28.btradiusdetector.utils.getDistanceCategory
 import kotlin.math.roundToInt
 
 private fun getCardinalDirection(degrees: Float): String {
