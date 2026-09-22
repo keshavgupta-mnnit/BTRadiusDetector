@@ -2,6 +2,7 @@ package com.kglabs28.btradiusdetector.utils
 
 import android.content.Context
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 
 /**
  * Resolves a single screen-size multiplier once per process lifetime and
@@ -34,3 +35,4 @@ object ScreenScale {
 }
 
 fun Dp.scaled(): Dp = this * ScreenScale.scale()
+fun Int.scaledDp(): Dp = this.dp * ScreenScale.scale()

@@ -1,6 +1,7 @@
 package com.kglabs28.btradiusdetector.utils
 
 import android.bluetooth.BluetoothClass
+import android.content.Context
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Bluetooth
 import androidx.compose.material.icons.rounded.Computer
@@ -10,6 +11,18 @@ import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.Speaker
 import androidx.compose.material.icons.rounded.Watch
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.map
+import java.io.IOException
+
+private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = Constants.PREFS_NAME)
 
 object AppUtils {
 
@@ -55,10 +68,6 @@ object AppUtils {
 
     // ---- Signal strength ----
 
-    /**
-     * Normalizes a raw RSSI (dBm, typically -100 to -30) into a 0f..1f
-     * progress value for signal-strength bars/dot sizing.
-     */
     fun rssiToProgress(rssi: Int): Float {
         val range = (Constants.RSSI_HOT - Constants.RSSI_FLOOR).toFloat()
         val clamped = rssi.coerceIn(Constants.RSSI_FLOOR, Constants.RSSI_HOT + 20)
@@ -75,5 +84,18 @@ object AppUtils {
             diffSeconds < 86400 -> "${diffSeconds / 3600} hr ago"
             else -> "${diffSeconds / 86400} days ago"
         }
+    }
+
+    // ---- Onboarding flag (DataStore) ----
+
+    private val SHOW_ONBOARDING_KEY = booleanPreferencesKey(Constants.KEY_SHOW_ONBOARDING)
+
+    fun observeShowOnboarding(context: Context): Flow<Boolean> =
+        context.dataStore.data
+            .catch { e -> if (e is IOException) emit(emptyPreferences()) else throw e }
+            .map { prefs -> prefs[SHOW_ONBOARDING_KEY] ?: true }
+
+    suspend fun setShowOnboarding(context: Context, show: Boolean) {
+        context.dataStore.edit { prefs -> prefs[SHOW_ONBOARDING_KEY] = show }
     }
 }

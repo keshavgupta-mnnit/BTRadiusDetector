@@ -2,19 +2,54 @@ package com.kglabs28.btradiusdetector.ui.screens
 
 import android.Manifest
 import android.bluetooth.BluetoothClass
-import android.content.Intent
 import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.rounded.ArrowForward
+import androidx.compose.material.icons.rounded.Bluetooth
+import androidx.compose.material.icons.rounded.Computer
+import androidx.compose.material.icons.rounded.Headset
+import androidx.compose.material.icons.rounded.PhoneAndroid
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Watch
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -23,23 +58,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.kglabs28.btradiusdetector.domain.model.BluetoothDeviceModel
 import com.kglabs28.btradiusdetector.ui.MainViewModel
-import com.kglabs28.btradiusdetector.service.MonitoringService
-
-import androidx.compose.ui.tooling.preview.Preview
 import com.kglabs28.btradiusdetector.ui.theme.BTRadiusDetectorTheme
 
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun ScanScreen(
-    viewModel: MainViewModel,
-    onDeviceSelected: (String) -> Unit,
-    onSettingsClick: () -> Unit
+    viewModel: MainViewModel, onDeviceSelected: (String) -> Unit, onSettingsClick: () -> Unit
 ) {
     val permissionsToRequest = remember {
         val list = mutableListOf<String>()
@@ -62,14 +93,14 @@ fun ScanScreen(
     LaunchedEffect(permissionState.allPermissionsGranted) {
         if (permissionState.allPermissionsGranted) {
             viewModel.refreshBondedDevices()
-            
+
             // Start the monitoring service if permissions are granted
-            val intent = Intent(context, MonitoringService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
+//            val intent = Intent(context, MonitoringService::class.java)
+//            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+//                context.startForegroundService(intent)
+//            } else {
+//                context.startService(intent)
+//            }
         }
     }
 
@@ -79,25 +110,22 @@ fun ScanScreen(
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
-                    Text(
-                        "SELECT DEVICE",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 2.sp
-                    )
-                },
-                actions = {
-                    IconButton(onClick = onSettingsClick) {
-                        Icon(Icons.Rounded.Settings, contentDescription = "Settings")
-                    }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color.Transparent,
-                    titleContentColor = MaterialTheme.colorScheme.onBackground
+                Text(
+                    "SELECT DEVICE",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 2.sp
                 )
+            }, actions = {
+                IconButton(onClick = onSettingsClick) {
+                    Icon(Icons.Rounded.Settings, contentDescription = "Settings")
+                }
+            }, colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                containerColor = Color.Transparent,
+                titleContentColor = MaterialTheme.colorScheme.onBackground
             )
-        },
-        containerColor = MaterialTheme.colorScheme.background
+            )
+        }, containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Box(
             modifier = Modifier
@@ -113,22 +141,18 @@ fun ScanScreen(
                             colors = listOf(
                                 MaterialTheme.colorScheme.primary.copy(alpha = 0.05f),
                                 Color.Transparent
-                            ),
-                            radius = 1000f
+                            ), radius = 1000f
                         )
                     )
             )
 
             if (showRationaleDialog) {
-                PermissionRationaleDialog(
-                    onConfirm = {
-                        showRationaleDialog = false
-                        permissionState.launchMultiplePermissionRequest()
-                    },
-                    onDismiss = {
-                        showRationaleDialog = false
-                    }
-                )
+                PermissionRationaleDialog(onConfirm = {
+                    showRationaleDialog = false
+                    permissionState.launchMultiplePermissionRequest()
+                }, onDismiss = {
+                    showRationaleDialog = false
+                })
             }
 
             if (!permissionState.allPermissionsGranted) {
@@ -139,24 +163,23 @@ fun ScanScreen(
                         } else {
                             permissionState.launchMultiplePermissionRequest()
                         }
-                    }
-                )
+                    })
             } else {
-                val preferences by viewModel.userPreferences.collectAsState()
-                val monitoredDevices = preferences?.monitoredDevices ?: emptySet()
-
-                if (bondedDevices.isEmpty()) {
-                    EmptyDevicesContent(onRefresh = { viewModel.refreshBondedDevices() })
-                } else {
-                    DeviceList(
-                        devices = bondedDevices,
-                        monitoredDevices = monitoredDevices,
-                        onDeviceClick = onDeviceSelected,
-                        onToggleMonitoring = { address, enabled ->
-                            viewModel.toggleMonitoring(address, enabled)
-                        }
-                    )
-                }
+//                val preferences by viewModel.userPreferences.collectAsState()
+//                val monitoredDevices = preferences?.monitoredDevices ?: emptySet()
+//
+//                if (bondedDevices.isEmpty()) {
+//                    EmptyDevicesContent(onRefresh = { viewModel.refreshBondedDevices() })
+//                } else {
+//                    DeviceList(
+//                        devices = bondedDevices,
+//                        monitoredDevices = monitoredDevices,
+//                        onDeviceClick = onDeviceSelected,
+//                        onToggleMonitoring = { address, enabled ->
+//                            viewModel.toggleMonitoring(address, enabled)
+//                        }
+//                    )
+//                }
             }
         }
     }
@@ -187,8 +210,7 @@ fun DeviceList(
                 device = device,
                 isMonitored = monitoredDevices.contains(device.address),
                 onClick = { onDeviceClick(device.address) },
-                onToggleMonitoring = { enabled -> onToggleMonitoring(device.address, enabled) }
-            )
+                onToggleMonitoring = { enabled -> onToggleMonitoring(device.address, enabled) })
         }
     }
 }
@@ -240,7 +262,9 @@ fun DeviceRow(
                 Text(
                     text = if (device.isConnected) "Connected" else "Paired",
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (device.isConnected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    color = if (device.isConnected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                        alpha = 0.7f
+                    )
                 )
             }
 
@@ -267,8 +291,7 @@ fun DeviceRow(
 
 @Composable
 fun PermissionRationaleDialog(
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit
+    onConfirm: () -> Unit, onDismiss: () -> Unit
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -281,9 +304,7 @@ fun PermissionRationaleDialog(
         },
         text = {
             Text(
-                "Bluetooth permissions are needed to find and connect to your devices. " +
-                "Location is required for scanning on older Android versions. " +
-                "Notifications are used for range alerts.",
+                "Bluetooth permissions are needed to find and connect to your devices. " + "Location is required for scanning on older Android versions. " + "Notifications are used for range alerts.",
                 style = MaterialTheme.typography.bodyMedium
             )
         },
@@ -379,35 +400,41 @@ fun ScanScreenPreview() {
     BTRadiusDetectorTheme(darkTheme = true) {
         // Mocking content for preview
         val mockDevices = listOf(
-            BluetoothDeviceModel("00:11:22:33:44:55", "Sony WH-1000XM4", BluetoothClass.Device.Major.AUDIO_VIDEO, true),
-            BluetoothDeviceModel("AA:BB:CC:DD:EE:FF", "Pixel Watch 2", BluetoothClass.Device.Major.WEARABLE, false),
-            BluetoothDeviceModel("12:34:56:78:90:AB", "MacBook Pro", BluetoothClass.Device.Major.COMPUTER, false),
-            BluetoothDeviceModel("55:44:33:22:11:00", "Pixel 8 Pro", BluetoothClass.Device.Major.PHONE, true)
+            BluetoothDeviceModel(
+                "00:11:22:33:44:55",
+                "Sony WH-1000XM4",
+                BluetoothClass.Device.Major.AUDIO_VIDEO,
+                0,
+                true
+            ), BluetoothDeviceModel(
+                "AA:BB:CC:DD:EE:FF", "Pixel Watch 2", BluetoothClass.Device.Major.WEARABLE, 0, false
+            ), BluetoothDeviceModel(
+                "12:34:56:78:90:AB", "MacBook Pro", BluetoothClass.Device.Major.COMPUTER, 0, false
+            ), BluetoothDeviceModel(
+                "55:44:33:22:11:00", "Pixel 8 Pro", BluetoothClass.Device.Major.PHONE, 0, true
+            )
         )
-        
+
         Scaffold(
             topBar = {
                 CenterAlignedTopAppBar(
                     title = {
-                        Text(
-                            "SELECT DEVICE",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 2.sp
-                        )
-                    },
-                    actions = {
-                        IconButton(onClick = {}) {
-                            Icon(Icons.Rounded.Settings, contentDescription = "Settings")
-                        }
-                    },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                        containerColor = Color.Transparent,
-                        titleContentColor = MaterialTheme.colorScheme.onBackground
+                    Text(
+                        "SELECT DEVICE",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 2.sp
                     )
+                }, actions = {
+                    IconButton(onClick = {}) {
+                        Icon(Icons.Rounded.Settings, contentDescription = "Settings")
+                    }
+                }, colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = Color.Transparent,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground
                 )
-            },
-            containerColor = MaterialTheme.colorScheme.background
+                )
+            }, containerColor = MaterialTheme.colorScheme.background
         ) { padding ->
             Box(
                 modifier = Modifier
@@ -422,8 +449,7 @@ fun ScanScreenPreview() {
                                 colors = listOf(
                                     MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
                                     Color.Transparent
-                                ),
-                                radius = 1000f
+                                ), radius = 1000f
                             )
                         )
                 )
@@ -431,8 +457,7 @@ fun ScanScreenPreview() {
                     devices = mockDevices,
                     monitoredDevices = setOf(mockDevices[0].address),
                     onDeviceClick = {},
-                    onToggleMonitoring = { _, _ -> }
-                )
+                    onToggleMonitoring = { _, _ -> })
             }
         }
     }

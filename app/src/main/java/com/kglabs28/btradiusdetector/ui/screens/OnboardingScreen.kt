@@ -1,31 +1,41 @@
 package com.kglabs28.btradiusdetector.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.BluetoothSearching
 import androidx.compose.material.icons.rounded.CompassCalibration
 import androidx.compose.material.icons.rounded.SignalCellularAlt
-import androidx.compose.material3.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.kglabs28.btradiusdetector.ui.MainViewModel
-import com.kglabs28.btradiusdetector.ui.theme.SonarCyan
-import kotlinx.coroutines.launch
+import com.kglabs28.btradiusdetector.utils.Dimens
+import com.kglabs28.btradiusdetector.utils.Strings
+import com.kglabs28.btradiusdetector.utils.scaled
 
 @Composable
-fun OnboardingScreen(viewModel: MainViewModel) {
-    val scope = rememberCoroutineScope()
-
+fun OnboardingScreen(onComplete: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -33,7 +43,7 @@ fun OnboardingScreen(viewModel: MainViewModel) {
                 Brush.verticalGradient(
                     colors = listOf(
                         MaterialTheme.colorScheme.background,
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        MaterialTheme.colorScheme.surfaceVariant
                     )
                 )
             ),
@@ -41,27 +51,28 @@ fun OnboardingScreen(viewModel: MainViewModel) {
     ) {
         Card(
             modifier = Modifier
-                .fillMaxWidth(0.85f)
-                .padding(16.dp),
-            shape = RoundedCornerShape(24.dp),
+                .fillMaxWidth(Dimens.cardWidthFraction)
+                .padding(Dimens.spacingMd.scaled()),
+            shape = RoundedCornerShape(Dimens.cornerRadiusCard.scaled()),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.onSurface
             ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = Dimens.elevationCard.scaled())
         ) {
             Column(
-                modifier = Modifier.padding(24.dp),
+                modifier = Modifier.padding(Dimens.spacingLg.scaled()),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "Welcome to BT Radius",
+                    text = Strings.onboardingTitle,
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
-                    color = SonarCyan,
+                    color = MaterialTheme.colorScheme.primary,
                     textAlign = TextAlign.Center
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(Dimens.spacingLg.scaled()))
 
                 OnboardingItem(
                     icon = Icons.AutoMirrored.Rounded.BluetoothSearching,
@@ -69,7 +80,7 @@ fun OnboardingScreen(viewModel: MainViewModel) {
                     description = "Choose a paired Bluetooth device to track its signal strength."
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(Dimens.spacingMd.scaled()))
 
                 OnboardingItem(
                     icon = Icons.Rounded.CompassCalibration,
@@ -77,7 +88,7 @@ fun OnboardingScreen(viewModel: MainViewModel) {
                     description = "Slowly rotate your phone. The compass will track the best signal direction."
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(Dimens.spacingMd.scaled()))
 
                 OnboardingItem(
                     icon = Icons.Rounded.SignalCellularAlt,
@@ -85,23 +96,22 @@ fun OnboardingScreen(viewModel: MainViewModel) {
                     description = "Watch the RSSI values. Hot means you're very close!"
                 )
 
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(Dimens.spacingXl.scaled()))
 
                 Button(
-                    onClick = {
-                        scope.launch {
-                            viewModel.updateOnboardingCompleted()
-                        }
-                    },
+                    onClick = onComplete,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = SonarCyan)
+                    shape = RoundedCornerShape(Dimens.cornerRadiusButton.scaled()),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
                 ) {
                     Text(
-                        "GOT IT",
+                        Strings.gotIt,
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
+                        letterSpacing = Dimens.letterSpacingButton
                     )
                 }
             }
@@ -115,20 +125,21 @@ fun OnboardingItem(icon: ImageVector, title: String, description: String) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = SonarCyan,
-            modifier = Modifier.size(32.dp)
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(Dimens.iconSizeMedium.scaled())
         )
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(Dimens.spacingMd.scaled()))
         Column {
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = description,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
