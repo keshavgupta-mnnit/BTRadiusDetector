@@ -18,7 +18,7 @@ object Constants {
     const val NOTIF_ID_STICKY = 3000
 
     // Behavior tuning
-    const val DISCONNECT_DEBOUNCE_MS = 15_000L
+    const val DISCONNECT_DEBOUNCE_MS = 5_000L
     const val STICKY_REPEAT_INTERVAL_MS = 5_000L
     const val RSSI_SMOOTHING_WINDOW = 5
 

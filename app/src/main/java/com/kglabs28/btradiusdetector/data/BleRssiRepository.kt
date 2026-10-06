@@ -441,13 +441,134 @@ class BleRssiRepository(private val context: Context) {
         levelOf(sticky)?.let { trySend(it) }
         runCatching { context.registerReceiver(receiver, filter) }
 
-        awaitClose { runCatching { context.unregisterReceiver(receiver) } }
+        // GATT Battery Service path: many buds never send the HFP broadcast
+        // but do expose the standard BAS (0x180F) over LE — read it directly.
+        val scope = this
+        var basGatt: android.bluetooth.BluetoothGatt? = null
+        var basPoll: kotlinx.coroutines.Job? = null
+
+        fun readBasLevel(g: android.bluetooth.BluetoothGatt) {
+            val characteristic = g.getService(BAS_SERVICE_UUID)?.getCharacteristic(BAS_LEVEL_UUID)
+                ?: return
+            runCatching {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    g.readCharacteristic(characteristic)
+                } else {
+                    @Suppress("DEPRECATION")
+                    g.readCharacteristic(characteristic)
+                }
+            }
+        }
+
+        fun stopBas() {
+            basPoll?.cancel()
+            basPoll = null
+            runCatching {
+                basGatt?.disconnect()
+                basGatt?.close()
+            }
+            basGatt = null
+        }
+
+        val basCallback = object : android.bluetooth.BluetoothGattCallback() {
+            override fun onConnectionStateChange(
+                g: android.bluetooth.BluetoothGatt,
+                status: Int,
+                newState: Int
+            ) {
+                if (newState == android.bluetooth.BluetoothProfile.STATE_CONNECTED) {
+                    runCatching { g.discoverServices() }
+                } else {
+                    basPoll?.cancel()
+                    basPoll = null
+                }
+            }
+
+            override fun onServicesDiscovered(g: android.bluetooth.BluetoothGatt, status: Int) {
+                if (status != android.bluetooth.BluetoothGatt.GATT_SUCCESS) return
+                readBasLevel(g)
+                basPoll?.cancel()
+                basPoll = scope.launch {
+                    while (true) {
+                        kotlinx.coroutines.delay(GATT_BATTERY_POLL_MS)
+                        readBasLevel(g)
+                    }
+                }
+            }
+
+            @Suppress("DEPRECATION")
+            override fun onCharacteristicRead(
+                g: android.bluetooth.BluetoothGatt,
+                characteristic: android.bluetooth.BluetoothGattCharacteristic,
+                status: Int
+            ) {
+                if (status == android.bluetooth.BluetoothGatt.GATT_SUCCESS &&
+                    characteristic.uuid == BAS_LEVEL_UUID
+                ) {
+                    characteristic.value?.firstOrNull()?.let { trySend(it.toInt() and 0xFF) }
+                }
+            }
+
+            @androidx.annotation.RequiresApi(Build.VERSION_CODES.TIRAMISU)
+            override fun onCharacteristicRead(
+                g: android.bluetooth.BluetoothGatt,
+                characteristic: android.bluetooth.BluetoothGattCharacteristic,
+                value: ByteArray,
+                status: Int
+            ) {
+                if (status == android.bluetooth.BluetoothGatt.GATT_SUCCESS &&
+                    characteristic.uuid == BAS_LEVEL_UUID
+                ) {
+                    value.firstOrNull()?.let { trySend(it.toInt() and 0xFF) }
+                }
+            }
+        }
+
+        runCatching {
+            val adapter = bluetoothAdapter
+            if (adapter?.isEnabled == true && basGatt == null) {
+                val device = adapter.bondedDevices?.find { it.address == targetDeviceAddress }
+                    ?: adapter.getRemoteDevice(targetDeviceAddress)
+                basGatt = device.connectGatt(context, false, basCallback, BluetoothDevice.TRANSPORT_LE)
+            }
+        }
+
+        awaitClose {
+            runCatching { context.unregisterReceiver(receiver) }
+            stopBas()
+        }
     }
 
+    /**
+     * Synchronous sticky-broadcast lookup for workers building notification
+     * bodies. Returns null when nothing was ever broadcast for [address].
+     */
+    fun getLastKnownBattery(address: String): Int? {
+        if (!hasConnectPermission()) return null
+        val sticky = runCatching {
+            context.registerReceiver(null, IntentFilter(ACTION_BATTERY_LEVEL_CHANGED))
+        }.getOrNull() ?: return null
+        val device: BluetoothDevice? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            sticky.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            sticky.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
+        }
+        if (device?.address != address) return null
+        val level = sticky.getIntExtra(EXTRA_BATTERY_LEVEL, BATTERY_UNKNOWN)
+        return if (level in 0..100) level else null
+    }
+
+    // GATT Battery Service (0x180F) / Battery Level (0x2A19) — standard SIG UUIDs.
     companion object {
         private const val ACTION_BATTERY_LEVEL_CHANGED =
             "android.bluetooth.device.action.BATTERY_LEVEL_CHANGED"
         private const val EXTRA_BATTERY_LEVEL = "android.bluetooth.device.extra.BATTERY_LEVEL"
         private const val BATTERY_UNKNOWN = -1
+        private val BAS_SERVICE_UUID =
+            java.util.UUID.fromString("0000180f-0000-1000-8000-00805f9a34fb")
+        private val BAS_LEVEL_UUID =
+            java.util.UUID.fromString("00002a19-0000-1000-8000-00805f9a34fb")
+        private const val GATT_BATTERY_POLL_MS = 60_000L
     }
 }

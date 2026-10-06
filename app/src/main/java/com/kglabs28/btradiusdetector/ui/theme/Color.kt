@@ -36,6 +36,11 @@ val ProximityHot = SonarGreen
 val ProximityWarm = SonarCyan
 val ProximityCold = WarningAmber
 
+// Notification accents (framework NotificationCompat.setColor takes the
+// ARGB int via .toArgb(), so these stay in the design system, not in res).
+val NotificationAccentDisconnect = Color(0xFFFF5252)
+val NotificationAccentReconnect = SonarGreen
+
 // Fallback Light Palette (if needed, though dark navy is the focus)
 val PrimaryLight = Color(0xFF006D41)
 val OnPrimaryLight = Color.White

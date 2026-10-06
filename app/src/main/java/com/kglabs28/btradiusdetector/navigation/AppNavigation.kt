@@ -21,10 +21,19 @@ import com.kglabs28.btradiusdetector.ui.screens.home.HomeScreen
 @Composable
 fun AppNavigation(
     showOnboarding: Boolean,
+    deepLinkDeviceId: String?,
+    onDeepLinkConsumed: () -> Unit,
     onOnboardingComplete: () -> Unit
 ) {
     val initialRoute = if (showOnboarding) NavRoute.Onboarding else NavRoute.Scan
     val backStack = rememberNavBackStack(initialRoute)
+
+    androidx.compose.runtime.LaunchedEffect(deepLinkDeviceId) {
+        if (deepLinkDeviceId != null) {
+            backStack.add(NavRoute.Details(deepLinkDeviceId))
+            onDeepLinkConsumed()
+        }
+    }
 
     NavDisplay(
         backStack = backStack,

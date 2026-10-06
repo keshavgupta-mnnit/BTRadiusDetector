@@ -35,6 +35,7 @@ class StickyAlertService : Service() {
 
         val notification = NotificationUtils.buildStickyAlertNotification(
             this,
+            address,
             Strings.disconnectTitle(name),
             Strings.disconnectBody
         )
@@ -51,8 +52,10 @@ class StickyAlertService : Service() {
         timer = object : CountDownTimer(Long.MAX_VALUE, Constants.STICKY_REPEAT_INTERVAL_MS) {
             override fun onTick(millisUntilFinished: Long) {
                 val name = deviceName ?: return
+                val address = deviceAddress ?: return
                 val notification = NotificationUtils.buildStickyAlertNotification(
                     this@StickyAlertService,
+                    address,
                     Strings.disconnectTitle(name),
                     Strings.disconnectBody
                 )

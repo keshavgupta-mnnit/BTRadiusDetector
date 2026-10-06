@@ -8,9 +8,9 @@ import com.kglabs28.btradiusdetector.utils.Constants
 data class AlertSettingsEntity(
     @PrimaryKey val address: String,
     val monitoringEnabled: Boolean = true,
-    val notifyOnDisconnect: Boolean = false,
-    val notifyOnReconnect: Boolean = false,
-    val soundEnabled: Boolean = false,
+    val notifyOnDisconnect: Boolean = true,
+    val notifyOnReconnect: Boolean = true,
+    val soundEnabled: Boolean = true,
     val vibrationEnabled: Boolean = true,
     val keepNotifyingOnDisconnect: Boolean = false,
     val lastBestRssi: Int = Constants.RSSI_FLOOR,

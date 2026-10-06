@@ -28,8 +28,11 @@ fun TrackingInfoSection(
         Spacer(modifier = Modifier.height(Dimens.spacingMd.scaled()))
         HeadingCard(heading = state.heading, cardinal = state.cardinal)
         state.battery?.let { battery ->
-            Spacer(modifier = Modifier.height(Dimens.spacingMd.scaled()))
-            BatteryCard(percent = battery)
+            // A frozen percentage on a dead link misleads — show it only live.
+            if (state.isConnected) {
+                Spacer(modifier = Modifier.height(Dimens.spacingMd.scaled()))
+                BatteryCard(percent = battery)
+            }
         }
         Spacer(modifier = Modifier.height(Dimens.spacingMd.scaled()))
         OutlineActionButton(

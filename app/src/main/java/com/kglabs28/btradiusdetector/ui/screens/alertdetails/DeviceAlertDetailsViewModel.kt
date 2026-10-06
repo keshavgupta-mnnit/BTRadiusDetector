@@ -60,10 +60,10 @@ class DeviceAlertDetailsViewModel(
             majorClass = device?.deviceClass ?: 0,
             minorClass = device?.minorDeviceClass ?: 0,
             isConnected = device?.isConnected ?: false,
-            monitoringEnabled = row?.monitoringEnabled ?: device?.isConnected ?: false,
-            notifyOnDisconnect = row?.notifyOnDisconnect ?: false,
-            notifyOnReconnect = row?.notifyOnReconnect ?: false,
-            soundEnabled = row?.soundEnabled ?: false,
+            monitoringEnabled = row?.monitoringEnabled ?: true,
+            notifyOnDisconnect = row?.notifyOnDisconnect ?: true,
+            notifyOnReconnect = row?.notifyOnReconnect ?: true,
+            soundEnabled = row?.soundEnabled ?: true,
             vibrationEnabled = row?.vibrationEnabled ?: true
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AlertDetailsUiState())
