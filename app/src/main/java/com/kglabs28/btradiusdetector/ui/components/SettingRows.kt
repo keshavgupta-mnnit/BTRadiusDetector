@@ -89,6 +89,7 @@ fun SettingRow(
 
 /**
  * Device alert toggle row. Stateless — [checked] + [onCheckedChange] hoisted.
+ * Tapping the row (not the switch) fires [onClick] when provided.
  */
 @Composable
 fun DeviceAlertRow(
@@ -97,14 +98,17 @@ fun DeviceAlertRow(
     deviceType: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null
 ) {
     AppCard(modifier = modifier.fillMaxWidth().padding(vertical = Dimens.spacingXs.scaled())) {
         Row(
-            modifier = Modifier.padding(
-                horizontal = Dimens.cardPaddingH.scaled(),
-                vertical = Dimens.cardPaddingV.scaled()
-            ).fillMaxWidth(),
+            modifier = Modifier
+                .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+                .padding(
+                    horizontal = Dimens.cardPaddingH.scaled(),
+                    vertical = Dimens.cardPaddingV.scaled()
+                ).fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
@@ -143,6 +147,50 @@ fun DeviceAlertRow(
     }
 }
 
+/**
+ * Plain title + switch row for the Alert Settings card. Stateless.
+ */
+@Composable
+fun SwitchSettingRow(
+    title: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    showDivider: Boolean = true
+) {
+    Column(modifier = modifier) {
+        Row(
+            modifier = Modifier.fillMaxWidth()
+                .padding(horizontal = Dimens.cardPaddingH.scaled(), vertical = Dimens.spacingSm.scaled()),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                title, fontSize = Dimens.textLabel,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
+            )
+            Switch(
+                checked = checked,
+                onCheckedChange = onCheckedChange,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = ContentWhite,
+                    checkedTrackColor = SonarGreen,
+                    uncheckedThumbColor = ContentWhite.copy(alpha = Dimens.alphaMuted),
+                    uncheckedTrackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = Dimens.alphaTrackOff)
+                )
+            )
+        }
+        if (showDivider) {
+            Box(
+                modifier = Modifier.fillMaxWidth()
+                    .padding(start = Dimens.cardPaddingH.scaled())
+                    .height(Dimens.dividerH.scaled())
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = Dimens.alphaDivider))
+            )
+        }
+    }
+}
+
 @Preview(showBackground = true)
 @Composable
 private fun SettingRowsPreview() {
@@ -152,6 +200,7 @@ private fun SettingRowsPreview() {
                 icon = Icons.Rounded.ChevronRight, title = "About",
                 value = null, showDivider = false, onClick = {}
             )
+            SwitchSettingRow(title = "Vibration", checked = true, onCheckedChange = {})
         }
     }
 }

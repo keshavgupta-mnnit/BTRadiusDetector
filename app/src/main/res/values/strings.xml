@@ -2,5 +2,6 @@
     <string name="app_name">BTRadiusDetector</string>
     <string name="notification_channel_silent_name">Range Alerts (Silent)</string>
     <string name="notification_channel_sound_name">Range Alerts (Sound)</string>
+    <string name="notification_channel_vibrate_name">Range Alerts (Vibration)</string>
     <string name="notification_channel_sticky_name">Range Alerts (Persistent)</string>
 </resources>

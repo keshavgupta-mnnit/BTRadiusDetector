@@ -7,15 +7,19 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
-import com.kglabs28.btradiusdetector.ui.MainViewModel
-import com.kglabs28.btradiusdetector.ui.screens.OnboardingScreen
-import com.kglabs28.btradiusdetector.ui.screens.SettingsScreen
-import com.kglabs28.btradiusdetector.ui.screens.TrackingScreen
+import com.kglabs28.btradiusdetector.ui.screens.alertdetails.DeviceAlertDetailsScreen
+import com.kglabs28.btradiusdetector.ui.screens.onboarding.OnboardingScreen
+import com.kglabs28.btradiusdetector.ui.screens.settings.SettingsScreen
+import com.kglabs28.btradiusdetector.ui.screens.tracking.TrackingScreen
 import com.kglabs28.btradiusdetector.ui.screens.home.HomeScreen
 
+/**
+ * Navigation carries only primitives (device addresses) between destinations.
+ * Every screen creates its own ViewModel internally — no ViewModel is ever
+ * passed from one screen to the next.
+ */
 @Composable
 fun AppNavigation(
-    viewModel: MainViewModel,
     showOnboarding: Boolean,
     onOnboardingComplete: () -> Unit
 ) {
@@ -43,15 +47,24 @@ fun AppNavigation(
                 }
 
                 is NavRoute.Settings -> NavEntry(key) {
-                    SettingsScreen(viewModel = viewModel, onBack = { backStack.removeLastOrNull() })
+                    SettingsScreen(
+                        onBack = { backStack.removeLastOrNull() },
+                        onDeviceClick = { deviceId -> backStack.add(NavRoute.AlertDetails(deviceId)) }
+                    )
+                }
+
+                is NavRoute.AlertDetails -> NavEntry(key) {
+                    DeviceAlertDetailsScreen(
+                        deviceId = key.deviceId,
+                        onBack = { backStack.removeLastOrNull() }
+                    )
                 }
 
                 is NavRoute.Details -> NavEntry(key) {
                     TrackingScreen(
                         deviceId = key.deviceId,
-                        viewModel = viewModel,
                         onBack = { backStack.removeLastOrNull() },
-                        onSettingsClick = { backStack.add(NavRoute.Settings) }
+                        onSettingsClick = { backStack.add(NavRoute.AlertDetails(key.deviceId)) }
                     )
                 }
 

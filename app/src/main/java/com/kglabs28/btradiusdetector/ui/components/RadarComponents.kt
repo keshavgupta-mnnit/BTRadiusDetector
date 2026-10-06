@@ -3,14 +3,22 @@ package com.kglabs28.btradiusdetector.ui.components
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -26,16 +34,79 @@ import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.kglabs28.btradiusdetector.ui.SignalPoint
+import com.kglabs28.btradiusdetector.domain.model.SignalPoint
 import com.kglabs28.btradiusdetector.ui.theme.BTRadiusDetectorTheme
 import com.kglabs28.btradiusdetector.ui.theme.ContentWhite
 import com.kglabs28.btradiusdetector.ui.theme.SonarCyan
 import com.kglabs28.btradiusdetector.ui.theme.SonarGreen
 import com.kglabs28.btradiusdetector.utils.Constants
 import com.kglabs28.btradiusdetector.utils.Dimens
+import com.kglabs28.btradiusdetector.utils.SignalUtils
+import com.kglabs28.btradiusdetector.utils.Strings
 import com.kglabs28.btradiusdetector.utils.scaled
+
+/**
+ * The full radar block in one reusable piece: rings + compass numbers +
+ * pulsing dot + best-signal marker + turn guidance. Drop it on any screen
+ * that has heading + signal data — no radar internals leak out.
+ */
+@Composable
+fun RadarTracker(
+    heading: Float,
+    peakHeading: Float,
+    peakRssi: Int,
+    rssi: Int,
+    history: List<SignalPoint> = emptyList(),
+    modifier: Modifier = Modifier
+) {
+    val animatedHeading by animateFloatAsState(
+        targetValue = heading,
+        animationSpec = spring(stiffness = Spring.StiffnessLow),
+        label = "HeadingAnimation"
+    )
+
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            modifier = Modifier.fillMaxWidth().height(Dimens.radarBoxHeight.scaled()),
+            contentAlignment = Alignment.Center
+        ) {
+            RadarView(
+                peakHeading = peakHeading,
+                peakRssi = peakRssi,
+                currentHeading = heading,
+                history = history
+            )
+            CompassRing(heading = animatedHeading)
+            PulsingDot(scale = SignalUtils.dotScale(rssi))
+            if (peakRssi > Constants.RSSI_FLOOR) {
+                Text(
+                    text = SignalUtils.formattedBestSignal(peakHeading),
+                    color = SonarGreen,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = Dimens.textBestSignal,
+                    textAlign = TextAlign.End,
+                    lineHeight = Dimens.lineHeightBestSignal,
+                    modifier = Modifier.align(Alignment.TopEnd)
+                        .padding(top = Dimens.spacingSm.scaled(), end = Dimens.spacingXs.scaled())
+                )
+            }
+        }
+        if (peakRssi > Constants.RSSI_FLOOR) {
+            Text(
+                text = SignalUtils.turnGuidance(peakHeading, heading),
+                color = SonarGreen,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = Dimens.textCaption,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+                    .padding(vertical = Dimens.spacingXs.scaled())
+            )
+        }
+    }
+}
 
 /**
  * Radar rings + best-direction wedge + history dots. Stateless.
@@ -243,10 +314,6 @@ fun PulsingDot(scale: Float, modifier: Modifier = Modifier) {
 @Composable
 private fun RadarPreview() {
     BTRadiusDetectorTheme(darkTheme = true) {
-        Box(contentAlignment = Alignment.Center) {
-            RadarView(peakHeading = 42f, peakRssi = -52, currentHeading = 42f)
-            CompassRing(heading = 42f)
-            PulsingDot(scale = 0.85f)
-        }
+        RadarTracker(heading = 42f, peakHeading = 42f, peakRssi = -52, rssi = -52)
     }
 }

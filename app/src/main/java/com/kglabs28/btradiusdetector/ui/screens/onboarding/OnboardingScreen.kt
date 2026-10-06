@@ -1,4 +1,4 @@
-package com.kglabs28.btradiusdetector.ui.screens
+package com.kglabs28.btradiusdetector.ui.screens.onboarding
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -17,8 +17,9 @@ import com.kglabs28.btradiusdetector.utils.Strings
 import com.kglabs28.btradiusdetector.utils.scaled
 
 /**
- * First-launch overlay. Stateless — [onComplete] hoisted, steps from [Strings].
- * Reuses [HowToFindCard] so onboarding and in-app help stay identical.
+ * First-launch overlay. Stateless, no ViewModel — there is no state to own,
+ * just a one-shot callback. Reuses [HowToFindCard] so onboarding and in-app
+ * help stay identical.
  */
 @Composable
 fun OnboardingScreen(onComplete: () -> Unit) {

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.BatteryStd
 import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.Icon
@@ -108,6 +109,46 @@ fun HeadingCard(heading: Float, cardinal: String, modifier: Modifier = Modifier)
                 )
                 Text(
                     Strings.headingLabel(heading.toInt(), cardinal),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = Dimens.textCardTitle,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Device battery card. Stateless — [percent] in only. Rendered only when the
+ * headset reports a level; hidden otherwise (never show stale data).
+ */
+@Composable
+fun BatteryCard(percent: Int, modifier: Modifier = Modifier) {
+    AppCard(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.padding(
+                horizontal = Dimens.cardPaddingH.scaled(),
+                vertical = Dimens.cardPaddingV.scaled()
+            ).fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.BatteryStd,
+                contentDescription = null,
+                tint = SonarGreen,
+                modifier = Modifier.size(Dimens.iconHeading.scaled())
+            )
+            Spacer(modifier = Modifier.width(Dimens.spacingMd.scaled()))
+            Column {
+                Text(
+                    Strings.batteryTitle,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontSize = Dimens.textTiny,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = Dimens.alphaSubtleText)
+                )
+                Text(
+                    Strings.batteryPercent(percent),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     fontSize = Dimens.textCardTitle,

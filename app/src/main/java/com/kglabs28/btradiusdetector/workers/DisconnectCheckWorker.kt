@@ -21,7 +21,8 @@ class DisconnectCheckWorker(
 
         val dao = AppDatabase.getInstance(applicationContext).alertSettingsDao()
         val settings = dao.getByAddress(address) ?: return Result.success()
-        if (!settings.notifyOnDisconnect) return Result.success()
+        // Master toggle + per-event toggle: unmonitored devices never notify.
+        if (!settings.monitoringEnabled || !settings.notifyOnDisconnect) return Result.success()
 
         val repo = BleRssiRepository(applicationContext)
         val stillDisconnected = !repo.isConnected(address)
@@ -33,11 +34,12 @@ class DisconnectCheckWorker(
         if (settings.keepNotifyingOnDisconnect) {
             StickyAlertService.start(applicationContext, address, deviceName)
         } else {
-            val notification = NotificationUtils.buildOneTimeAlertNotification(
+            val notification = NotificationUtils.buildAlertNotification(
                 applicationContext,
                 Strings.disconnectTitle(deviceName),
                 Strings.disconnectBody,
-                settings.soundEnabled
+                settings.soundEnabled,
+                settings.vibrationEnabled
             )
             NotificationUtils.notifySafely(applicationContext,Constants.NOTIF_ID_DISCONNECT_BASE + address.hashCode(), notification)
         }

@@ -9,6 +9,7 @@ object Constants {
     // Notification channels
     const val CHANNEL_ID_SILENT = "range_alerts_silent"
     const val CHANNEL_ID_SOUND = "range_alerts_sound"
+    const val CHANNEL_ID_VIBRATE = "range_alerts_vibrate"
     const val CHANNEL_ID_STICKY = "sticky_disconnect_alert"
 
     // Notification IDs
@@ -37,8 +38,13 @@ object Constants {
 
     // RSSI pipeline recovery (no magic numbers in repository)
     const val SCAN_RETRY_DELAY_MS = 3_000L
-    const val DISCOVERY_RESTART_GAP_MS = 4_000L
     const val GUIDANCE_DEAD_ZONE_DEG = 10f
+
+    // Live-link RSSI polling (no magic numbers in repository)
+    const val GATT_POLL_MS = 2_000L
+    const val GATT_RETRY_MS = 5_000L
+    const val STALE_CHECK_MS = 5_000L
+    const val STALE_TIMEOUT_MS = 10_000L
 
     // Background glow (no magic numbers in composables)
     const val RADIAL_GLOW_RADIUS = 1000f

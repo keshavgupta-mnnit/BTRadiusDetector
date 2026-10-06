@@ -27,16 +27,18 @@ class ConnectEventWorker(
 
         val dao = AppDatabase.getInstance(applicationContext).alertSettingsDao()
         val settings = dao.getByAddress(address) ?: return Result.success()
-        if (!settings.notifyOnReconnect) return Result.success()
+        // Master toggle + per-event toggle: unmonitored devices never notify.
+        if (!settings.monitoringEnabled || !settings.notifyOnReconnect) return Result.success()
 
         val repo = BleRssiRepository(applicationContext)
         val deviceName = repo.getBondedDevices().find { it.address == address }?.name ?: address
 
-        val notification = NotificationUtils.buildOneTimeAlertNotification(
+        val notification = NotificationUtils.buildAlertNotification(
             applicationContext,
             Strings.reconnectTitle(deviceName),
             Strings.reconnectBody,
-            settings.soundEnabled
+            settings.soundEnabled,
+            settings.vibrationEnabled
         )
         NotificationUtils.notifySafely(
             applicationContext,

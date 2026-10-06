@@ -182,25 +182,35 @@ class BleRssiRepository(private val context: Context) {
     }
 
     /**
-     * Merged RSSI stream: BLE scan (primary) + classic discovery (fallback).
+     * Merged RSSI stream from three sources, fastest-wins:
      *
-     * Why both: connected classic devices (A2DP earbuds/speakers) often stop LE
-     * advertising, so a BLE-only scan goes silent while still connected — the
-     * exact "full strength, then nothing, never recovers" symptom. Classic
-     * ACTION_FOUND carries EXTRA_RSSI and sees those devices.
+     * 1. GATT live-link polling (primary while connected): `readRemoteRssi()`
+     *    measures the actual link even when the buds stop advertising — the
+     *    connected-but-silent case that BLE-only scanning can never see.
+     * 2. BLE scan (advertising buds, nearby unpaired devices).
+     * 3. Classic discovery, gated: inquiry starves BLE reception, so it runs
+     *    only while no other source has produced a reading recently.
      *
      * Recovery rules: per-collector smoothing filter (no shared state), fresh
      * scanner lookup per start (no stale lazy), transient scan failures retry
      * instead of closing the flow, and BT on/off restarts the pipeline.
      */
     @SuppressLint("MissingPermission")
+    @Suppress("DEPRECATION") // 4-arg connectGatt works on minSdk 24–37; executor variant is S+ only.
     fun getRssiFlow(targetDeviceAddress: String): Flow<Int> = callbackFlow {
-        if (!hasScanPermission()) {
-            close(Exception("Bluetooth Scan permission not granted."))
+        if (!hasScanPermission() || !hasConnectPermission()) {
+            close(Exception("Bluetooth and Location permissions are required for signal tracking."))
             return@callbackFlow
         }
         val filter = MovingAverageFilter(Constants.RSSI_SMOOTHING_WINDOW)
         val scope = this
+        val lastEmit = java.util.concurrent.atomic.AtomicLong(android.os.SystemClock.elapsedRealtime())
+
+        fun emitRssi(rssi: Int) {
+            lastEmit.set(android.os.SystemClock.elapsedRealtime())
+            trySend(filter.add(rssi).toInt())
+        }
+
         val settings = ScanSettings.Builder()
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
             .build()
@@ -213,13 +223,13 @@ class BleRssiRepository(private val context: Context) {
             val callback = object : ScanCallback() {
                 override fun onScanResult(callbackType: Int, result: ScanResult) {
                     if (result.device.address == targetDeviceAddress) {
-                        trySend(filter.add(result.rssi).toInt())
+                        emitRssi(result.rssi)
                     }
                 }
 
                 override fun onBatchScanResults(results: List<ScanResult>) {
                     results.lastOrNull { it.device.address == targetDeviceAddress }?.let {
-                        trySend(filter.add(it.rssi).toInt())
+                        emitRssi(it.rssi)
                     }
                 }
 
@@ -249,15 +259,76 @@ class BleRssiRepository(private val context: Context) {
             bleCallback = null
         }
 
-        var discoveryRestart: kotlinx.coroutines.Job? = null
+        // ---- GATT live link: polls the connected link's RSSI directly. ----
+        var gatt: android.bluetooth.BluetoothGatt? = null
+        var pollJob: kotlinx.coroutines.Job? = null
+        var gattRetry: kotlinx.coroutines.Job? = null
+
+        fun stopGatt() {
+            pollJob?.cancel()
+            pollJob = null
+            gattRetry?.cancel()
+            gattRetry = null
+            runCatching {
+                gatt?.disconnect()
+                gatt?.close()
+            }
+            gatt = null
+        }
+
+        val gattCallback = object : android.bluetooth.BluetoothGattCallback() {
+            override fun onConnectionStateChange(
+                g: android.bluetooth.BluetoothGatt,
+                status: Int,
+                newState: Int
+            ) {
+                if (newState == BluetoothProfile.STATE_CONNECTED) {
+                    pollJob?.cancel()
+                    pollJob = scope.launch {
+                        while (true) {
+                            kotlinx.coroutines.delay(Constants.GATT_POLL_MS)
+                            runCatching { g.readRemoteRssi() }
+                        }
+                    }
+                } else {
+                    pollJob?.cancel()
+                    pollJob = null
+                    // Single re-try while still collected; the stale supervisor
+                    // covers the gap with discovery in the meantime.
+                    gattRetry?.cancel()
+                    gattRetry = scope.launch {
+                        kotlinx.coroutines.delay(Constants.GATT_RETRY_MS)
+                        if (bluetoothAdapter?.isEnabled == true) {
+                            runCatching { g.connect() }
+                        }
+                    }
+                }
+            }
+
+            override fun onReadRemoteRssi(g: android.bluetooth.BluetoothGatt, rssi: Int, status: Int) {
+                if (status == android.bluetooth.BluetoothGatt.GATT_SUCCESS) {
+                    emitRssi(rssi)
+                }
+            }
+        }
+
+        fun startGatt() {
+            val adapter = bluetoothAdapter ?: return
+            if (!adapter.isEnabled) return
+            if (gatt != null) return
+            val device = runCatching {
+                adapter.bondedDevices?.find { it.address == targetDeviceAddress }
+                    ?: adapter.getRemoteDevice(targetDeviceAddress)
+            }.getOrNull() ?: return
+            runCatching {
+                gatt = device.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
+            }
+        }
 
         fun startDiscovery() {
             val adapter = bluetoothAdapter ?: return
-            if (!adapter.isEnabled) return
-            runCatching {
-                if (adapter.isDiscovering) adapter.cancelDiscovery()
-                adapter.startDiscovery()
-            }
+            if (!adapter.isEnabled || adapter.isDiscovering) return
+            runCatching { adapter.startDiscovery() }
         }
 
         val receiver = object : BroadcastReceiver() {
@@ -273,26 +344,22 @@ class BleRssiRepository(private val context: Context) {
                         if (device?.address == targetDeviceAddress) {
                             val rssi = intent.getShortExtra(BluetoothDevice.EXTRA_RSSI, Short.MIN_VALUE)
                             if (rssi != Short.MIN_VALUE) {
-                                trySend(filter.add(rssi.toInt()).toInt())
+                                emitRssi(rssi.toInt())
                             }
-                        }
-                    }
-                    BluetoothAdapter.ACTION_DISCOVERY_FINISHED -> {
-                        // Discovery is single-shot (~12s): re-arm while collected.
-                        discoveryRestart?.cancel()
-                        discoveryRestart = scope.launch {
-                            kotlinx.coroutines.delay(Constants.DISCOVERY_RESTART_GAP_MS)
-                            startDiscovery()
                         }
                     }
                     BluetoothAdapter.ACTION_STATE_CHANGED -> {
                         when (intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1)) {
                             BluetoothAdapter.STATE_ON -> {
                                 filter.clear()
+                                lastEmit.set(android.os.SystemClock.elapsedRealtime())
                                 startBleScan()
-                                startDiscovery()
+                                startGatt()
                             }
-                            BluetoothAdapter.STATE_OFF -> stopBleScan()
+                            BluetoothAdapter.STATE_OFF -> {
+                                stopBleScan()
+                                stopGatt()
+                            }
                         }
                     }
                 }
@@ -301,19 +368,86 @@ class BleRssiRepository(private val context: Context) {
 
         val rssiFilter = IntentFilter().apply {
             addAction(BluetoothDevice.ACTION_FOUND)
-            addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
             addAction(BluetoothAdapter.ACTION_STATE_CHANGED)
         }
         runCatching { context.registerReceiver(receiver, rssiFilter) }
 
         startBleScan()
-        startDiscovery()
+        startGatt()
+
+        // Stale supervisor: classic inquiry degrades BLE reception, so only
+        // run it while nothing else has produced a reading recently.
+        val supervisor = scope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(Constants.STALE_CHECK_MS)
+                val adapter = bluetoothAdapter
+                val stale = android.os.SystemClock.elapsedRealtime() - lastEmit.get() >
+                    Constants.STALE_TIMEOUT_MS
+                if (stale && adapter?.isEnabled == true && !adapter.isDiscovering) {
+                    startDiscovery()
+                }
+            }
+        }
 
         awaitClose {
-            discoveryRestart?.cancel()
+            supervisor.cancel()
             stopBleScan()
+            stopGatt()
             runCatching { bluetoothAdapter?.cancelDiscovery() }
             runCatching { context.unregisterReceiver(receiver) }
         }
+    }
+
+    /**
+     * Best-effort headset battery level (0–100) for [targetDeviceAddress}.
+     * Emits null when the device/ROM doesn't report it — many Buds-style
+     * devices only expose battery via their companion app, never over HFP.
+     * The UI hides the battery row in that case instead of showing stale data.
+     *
+     * Source: the (hidden, vendor-populated) `BATTERY_LEVEL_CHANGED` broadcast
+     * plus its sticky intent for an instant first value. String literals are
+     * used because the action/extra are @hide with no SDK constant.
+     */
+    @SuppressLint("MissingPermission")
+    fun getBatteryFlow(targetDeviceAddress: String): Flow<Int?> = callbackFlow {
+        if (!hasConnectPermission()) {
+            close(Exception("Bluetooth Connect permission not granted."))
+            return@callbackFlow
+        }
+
+        fun levelOf(intent: Intent?): Int? {
+            if (intent == null) return null
+            val device: BluetoothDevice? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
+            }
+            if (device?.address != targetDeviceAddress) return null
+            val level = intent.getIntExtra(EXTRA_BATTERY_LEVEL, BATTERY_UNKNOWN)
+            return if (level in 0..100) level else null
+        }
+
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(ctx: Context?, intent: Intent?) {
+                if (intent?.action == ACTION_BATTERY_LEVEL_CHANGED) {
+                    levelOf(intent)?.let { trySend(it) }
+                }
+            }
+        }
+        val filter = IntentFilter(ACTION_BATTERY_LEVEL_CHANGED)
+        // Sticky lookup first: instant value when the ROM already broadcast it.
+        val sticky = runCatching { context.registerReceiver(null, filter) }.getOrNull()
+        levelOf(sticky)?.let { trySend(it) }
+        runCatching { context.registerReceiver(receiver, filter) }
+
+        awaitClose { runCatching { context.unregisterReceiver(receiver) } }
+    }
+
+    companion object {
+        private const val ACTION_BATTERY_LEVEL_CHANGED =
+            "android.bluetooth.device.action.BATTERY_LEVEL_CHANGED"
+        private const val EXTRA_BATTERY_LEVEL = "android.bluetooth.device.extra.BATTERY_LEVEL"
+        private const val BATTERY_UNKNOWN = -1
     }
 }

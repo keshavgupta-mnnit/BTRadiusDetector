@@ -34,6 +34,15 @@ object NotificationUtils {
             enableVibration(true)
         }
 
+        val vibrate = NotificationChannel(
+            Constants.CHANNEL_ID_VIBRATE,
+            context.getString(R.string.notification_channel_vibrate_name),
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            setSound(null, null)
+            enableVibration(true)
+        }
+
         val sticky = NotificationChannel(
             Constants.CHANNEL_ID_STICKY,
             context.getString(R.string.notification_channel_sticky_name),
@@ -42,7 +51,33 @@ object NotificationUtils {
             enableVibration(true)
         }
 
-        manager.createNotificationChannels(listOf(silent, sound, sticky))
+        manager.createNotificationChannels(listOf(silent, sound, vibrate, sticky))
+    }
+
+    /**
+     * One-shot alert honoring the per-device sound/vibration toggles.
+     * Vibration-only gets its own channel because on O+ vibration is
+     * channel-owned — per-notification vibration is ignored.
+     */
+    fun buildAlertNotification(
+        context: Context,
+        title: String,
+        body: String,
+        useSound: Boolean,
+        useVibration: Boolean
+    ): android.app.Notification {
+        val channelId = when {
+            useSound -> Constants.CHANNEL_ID_SOUND
+            useVibration -> Constants.CHANNEL_ID_VIBRATE
+            else -> Constants.CHANNEL_ID_SILENT
+        }
+        return NotificationCompat.Builder(context, channelId)
+            .setSmallIcon(R.drawable.ic_notification) // ensure this drawable exists; placeholder if not
+            .setContentTitle(title)
+            .setContentText(body)
+            .setAutoCancel(true)
+            .setPriority(if (useSound || useVibration) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_LOW)
+            .build()
     }
 
     fun buildOneTimeAlertNotification(

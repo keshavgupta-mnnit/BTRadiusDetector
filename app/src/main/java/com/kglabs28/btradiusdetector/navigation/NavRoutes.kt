@@ -14,5 +14,8 @@ sealed interface NavRoute : NavKey {
     data object Settings : NavRoute
 
     @Serializable
+    data class AlertDetails(val deviceId: String) : NavRoute
+
+    @Serializable
     data class Details(val deviceId: String) : NavRoute
 }
