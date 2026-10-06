@@ -41,4 +41,19 @@ class SignalUtilsTest {
         assertEquals("42° N", SignalUtils.formattedHeading(42f))
         assertEquals("45° NE", SignalUtils.formattedHeading(45f))
     }
+
+    @Test
+    fun `relative turn wraps to signed shortest path`() {
+        assertEquals(20f, SignalUtils.relativeTurn(60f, 40f))
+        assertEquals(-20f, SignalUtils.relativeTurn(40f, 60f))
+        assertEquals(20f, SignalUtils.relativeTurn(10f, 350f))
+        assertEquals(-20f, SignalUtils.relativeTurn(350f, 10f))
+    }
+
+    @Test
+    fun `turn guidance names direction or arrival`() {
+        assertEquals(Strings.facingBestSignal, SignalUtils.turnGuidance(42f, 45f))
+        assertEquals(Strings.turnRight(30), SignalUtils.turnGuidance(70f, 40f))
+        assertEquals(Strings.turnLeft(30), SignalUtils.turnGuidance(40f, 70f))
+    }
 }

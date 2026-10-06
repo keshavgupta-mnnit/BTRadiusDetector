@@ -38,6 +38,22 @@ object SignalUtils {
     fun formattedHeading(heading: Float): String =
         Strings.headingLabel(heading.toInt(), AppUtils.getCardinalDirection(heading))
 
+    /**
+     * Signed turn from [heading] toward [peakHeading], in (-180, 180].
+     * Positive = turn right, negative = turn left.
+     */
+    fun relativeTurn(peakHeading: Float, heading: Float): Float =
+        ((peakHeading - heading + 540f) % 360f) - 180f
+
+    fun turnGuidance(peakHeading: Float, heading: Float): String {
+        val relative = relativeTurn(peakHeading, heading)
+        return when {
+            kotlin.math.abs(relative) <= Constants.GUIDANCE_DEAD_ZONE_DEG -> Strings.facingBestSignal
+            relative > 0 -> Strings.turnRight(relative.toInt())
+            else -> Strings.turnLeft(-relative.toInt())
+        }
+    }
+
     @Composable
     fun proximityColor(rssi: Int): Color = when (getDistanceCategory(rssi)) {
         DistanceCategory.HOT -> ProximityHot

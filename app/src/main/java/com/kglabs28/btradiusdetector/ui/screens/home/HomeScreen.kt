@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -64,9 +63,10 @@ fun HomeScreen(
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             list.add(Manifest.permission.BLUETOOTH_SCAN)
             list.add(Manifest.permission.BLUETOOTH_CONNECT)
-        } else {
-            list.add(Manifest.permission.ACCESS_FINE_LOCATION)
         }
+        // Classic discovery (ACTION_FOUND RSSI fallback) is location-derived
+        // on every API level, so request it alongside the BT permissions.
+        list.add(Manifest.permission.ACCESS_FINE_LOCATION)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             list.add(Manifest.permission.POST_NOTIFICATIONS)
         }
@@ -94,11 +94,6 @@ fun HomeScreen(
                         fontSize = Dimens.textTitle
                     )
                 },
-                navigationIcon = {
-                    IconButton(onClick = { }) {
-                        Icon(Icons.Rounded.Menu, contentDescription = Strings.menuDesc)
-                    }
-                },
                 actions = {
                     IconButton(onClick = onSettingsClick) {
                         Icon(Icons.Rounded.Settings, contentDescription = Strings.settingsDesc)
@@ -107,7 +102,6 @@ fun HomeScreen(
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = Color.Transparent,
                     titleContentColor = MaterialTheme.colorScheme.onBackground,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
                     actionIconContentColor = MaterialTheme.colorScheme.onBackground
                 )
             )

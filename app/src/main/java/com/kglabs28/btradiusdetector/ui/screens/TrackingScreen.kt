@@ -147,15 +147,22 @@ fun TrackingScreen(
                         .padding(horizontal = Dimens.screenPaddingHWide.scaled()),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    RadarBlock(
-                        heading = animatedHeading,
-                        peakHeading = peakHeading,
-                        peakRssi = peakRssi,
-                        dotScale = dotScale,
-                        currentHeading = heading,
-                        history = signalHistory,
-                        modifier = Modifier.weight(1f)
-                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        RadarBlock(
+                            heading = animatedHeading,
+                            peakHeading = peakHeading,
+                            peakRssi = peakRssi,
+                            dotScale = dotScale,
+                            currentHeading = heading,
+                            history = signalHistory,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        GuidanceLine(
+                            peakHeading = peakHeading,
+                            peakRssi = peakRssi,
+                            heading = heading
+                        )
+                    }
                     Column(modifier = Modifier.weight(1f)) {
                         SignalStrengthCard(rssi = rssi)
                         Spacer(modifier = Modifier.height(Dimens.spacingMd.scaled()))
@@ -186,6 +193,11 @@ fun TrackingScreen(
                         currentHeading = heading,
                         history = signalHistory,
                         modifier = Modifier.fillMaxWidth()
+                    )
+                    GuidanceLine(
+                        peakHeading = peakHeading,
+                        peakRssi = peakRssi,
+                        heading = heading
                     )
                     Spacer(modifier = Modifier.height(Dimens.spacingSm.scaled()))
                     SignalStrengthCard(rssi = rssi)
@@ -246,6 +258,25 @@ private fun RadarBlock(
             )
         }
     }
+}
+
+@Composable
+private fun GuidanceLine(
+    peakHeading: Float,
+    peakRssi: Int,
+    heading: Float,
+    modifier: Modifier = Modifier
+) {
+    if (peakRssi <= Constants.RSSI_FLOOR) return
+    Text(
+        text = SignalUtils.turnGuidance(peakHeading, heading),
+        color = SonarGreen,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = Dimens.textCaption,
+        textAlign = TextAlign.Center,
+        modifier = modifier.fillMaxWidth()
+            .padding(vertical = Dimens.spacingXs.scaled())
+    )
 }
 
 @Preview(showBackground = true, device = "spec:width=411dp,height=891dp")

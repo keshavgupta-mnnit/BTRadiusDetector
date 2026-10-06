@@ -42,6 +42,8 @@ fun DeviceRow(
     modifier: Modifier = Modifier
 ) {
     val connected = device.isConnected
+    // Radar opens only for connected devices, so paired-only rows render
+    // dimmed and ignore taps.
     val contentAlpha = if (connected) 1f else Dimens.alphaDisabledContent
 
     Surface(

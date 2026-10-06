@@ -28,11 +28,17 @@ object Constants {
     const val RADAR_SWEEP_DURATION_MS = 5_000
     const val DOT_PULSE_DURATION_MS = 1_200
     const val COMPASS_TICK_STEP_DEG = 6
+    const val COMPASS_LABEL_STEP_DEG = 30
     const val BEST_WEDGE_SWEEP_DEG = 35f
     const val BEST_WEDGE_OFFSET_DEG = 17.5f
     const val RSSI_RANGE_SPAN = 70
     const val DOT_SCALE_BASE = 0.5f
     const val DOT_SCALE_RANGE = 0.5f
+
+    // RSSI pipeline recovery (no magic numbers in repository)
+    const val SCAN_RETRY_DELAY_MS = 3_000L
+    const val DISCOVERY_RESTART_GAP_MS = 4_000L
+    const val GUIDANCE_DEAD_ZONE_DEG = 10f
 
     // Background glow (no magic numbers in composables)
     const val RADIAL_GLOW_RADIUS = 1000f

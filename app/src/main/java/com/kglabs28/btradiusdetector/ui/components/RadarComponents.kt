@@ -21,6 +21,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
@@ -136,12 +137,30 @@ fun RadarView(
             )
             drawCircle(color = SonarGreen.copy(alpha = Dimens.alphaPeakHalo), radius = 6.dp.toPx(), center = peak)
             drawCircle(color = SonarGreen, radius = 3.5.dp.toPx(), center = peak)
+
+            // Bearing needle on the outer rim: unambiguous "walk this way" pointer.
+            val dir = Offset(kotlin.math.cos(angleRad).toFloat(), kotlin.math.sin(angleRad).toFloat())
+            val perp = Offset(-dir.y, dir.x)
+            val tip = center + dir * maxRadius
+            val baseCenter = center + dir * (maxRadius - 10.dp.toPx())
+            val halfWidth = 5.dp.toPx()
+            drawPath(
+                Path().apply {
+                    moveTo(tip.x, tip.y)
+                    lineTo(baseCenter.x + perp.x * halfWidth, baseCenter.y + perp.y * halfWidth)
+                    lineTo(baseCenter.x - perp.x * halfWidth, baseCenter.y - perp.y * halfWidth)
+                    close()
+                },
+                color = SonarGreen
+            )
         }
     }
 }
 
 /**
- * Rotating compass ring with N/E/S/W + ticks. Stateless.
+ * Rotating compass ring: cardinal letters at 0/90/180/270, degree numbers
+ * every 30° in between, so the best-signal bearing reads as a number the
+ * user can turn toward.
  */
 @Composable
 fun CompassRing(heading: Float, modifier: Modifier = Modifier) {
@@ -167,12 +186,28 @@ fun CompassRing(heading: Float, modifier: Modifier = Modifier) {
                 )
             }
         }
-        listOf("N", "E", "S", "W").forEachIndexed { index, label ->
+        for (deg in 0 until 360 step Constants.COMPASS_LABEL_STEP_DEG) {
             Box(
-                modifier = Modifier.fillMaxSize().rotate(index * 90f - heading),
+                modifier = Modifier.fillMaxSize().rotate(deg - heading),
                 contentAlignment = Alignment.TopCenter
             ) {
-                Text(text = label, color = ContentWhite, fontWeight = FontWeight.Bold, fontSize = Dimens.textRadarLabel)
+                val cardinal = when (deg) {
+                    0 -> "N"
+                    90 -> "E"
+                    180 -> "S"
+                    270 -> "W"
+                    else -> null
+                }
+                if (cardinal != null) {
+                    Text(text = cardinal, color = ContentWhite, fontWeight = FontWeight.Bold, fontSize = Dimens.textRadarLabel)
+                } else {
+                    Text(
+                        text = "$deg",
+                        color = ContentWhite.copy(alpha = Dimens.alphaSubtleText),
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = Dimens.textTiny
+                    )
+                }
             }
         }
     }
