@@ -3,11 +3,15 @@ package com.kglabs28.btradiusdetector.utils
 object Strings {
     // Home
     const val homeTitle = "BTRadiusDetector"
-    const val pairedDevicesHeader = "PAIRED DEVICES"
+    const val pairedDevicesHeader = "Paired Devices"
     const val noBondedDevices = "No Bonded Devices Found"
+    const val noPairedDevicesShort = "No paired devices found."
     const val refresh = "REFRESH"
     const val monitorRangeAlertsTitle = "Monitor for range alerts"
     const val monitorRangeAlertsSubtitle = "Get notified when devices go out of range or reconnect."
+    const val menuDesc = "Menu"
+    const val settingsDesc = "Settings"
+    const val backDesc = "Back"
 
     // Permissions
     const val permissionsRequiredTitle = "Permissions Required"
@@ -18,19 +22,52 @@ object Strings {
     const val notNow = "Not Now"
 
     // Tracking
-    const val signalStrength = "SIGNAL STRENGTH"
-    const val currentHeading = "CURRENT HEADING"
+    const val signalStrength = "Signal strength"
+    const val signalStrengthUpper = "SIGNAL STRENGTH"
+    const val currentHeading = "Current heading"
+    const val currentHeadingUpper = "CURRENT HEADING"
     const val searching = "Searching..."
     const val bestSignal = "Best signal"
+    const val connected = "Connected"
+    const val disconnected = "Disconnected"
+    const val paired = "Paired"
+    const val unknownDevice = "Unknown Device"
+    const val howToFindDesc = "How to find"
+    const val buzzMyWatch = "Buzz my watch"
+    const val watchBuzzNeedsCompanion = "Watch buzz requires companion app"
+    const val proximityStrong = "Strong"
+    const val proximityMedium = "Medium"
+    const val proximityWeak = "Weak"
+    fun findingTitle(deviceName: String) = "Finding: $deviceName"
+    fun bestSignalLabel(degrees: Int) = "Best signal\n($degrees°)"
+    fun dbmLabel(rssi: Int) = "$rssi dBm"
+    fun headingLabel(degrees: Int, cardinal: String) = "$degrees° $cardinal"
 
     // Onboarding / instructions
     const val onboardingTitle = "Welcome to BTRadiusDetector"
-    const val gotIt = "GOT IT"
+    const val howToFindTitle = "How to find your device"
+    const val gotIt = "Got it"
+    const val gotItUpper = "GOT IT"
+    const val closeDesc = "Close"
+    val howToSteps = listOf(
+        "Stand still.",
+        "Slowly turn in a full circle.",
+        "Watch where the signal is strongest.",
+        "Walk that way.",
+        "Repeat."
+    )
 
     // Settings
     const val settingsTitle = "Settings"
     const val rangeAlertsTitle = "Range Alerts"
-    const val rangeAlertsSubtitle = "Get notified when a monitored device goes out of range or reconnects."
+    const val rangeAlertsSubtitle = "Get notified when devices go out of range or reconnect."
+    const val otherSettingsTitle = "Other Settings"
+    const val notificationSoundTitle = "Notification sound"
+    const val notificationSoundDefault = "Default"
+    const val notificationSoundAlt = "Chime"
+    const val vibrationTitle = "Vibration"
+    const val vibrationOn = "On"
+    const val vibrationOff = "Off"
     const val aboutTitle = "About"
     const val aboutBody = "BTRadiusDetector helps you find nearby paired Bluetooth devices using signal strength and heading."
 

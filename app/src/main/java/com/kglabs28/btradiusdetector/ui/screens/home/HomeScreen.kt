@@ -3,7 +3,9 @@ package com.kglabs28.btradiusdetector.ui.screens.home
 import android.Manifest
 import android.os.Build
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,6 +25,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,9 +34,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
@@ -42,6 +45,7 @@ import com.kglabs28.btradiusdetector.ui.components.EmptyState
 import com.kglabs28.btradiusdetector.ui.components.MonitorRangeAlertsCard
 import com.kglabs28.btradiusdetector.ui.components.PermissionRationaleDialog
 import com.kglabs28.btradiusdetector.ui.components.PermissionRequestContent
+import com.kglabs28.btradiusdetector.utils.Constants
 import com.kglabs28.btradiusdetector.utils.Dimens
 import com.kglabs28.btradiusdetector.utils.Strings
 import com.kglabs28.btradiusdetector.utils.scaled
@@ -52,7 +56,7 @@ fun HomeScreen(
     onDeviceSelected: (String) -> Unit,
     onSettingsClick: () -> Unit
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
     val viewModel: HomeViewModel = viewModel(factory = HomeViewModel.factory(context))
 
     val permissionsToRequest = remember {
@@ -71,7 +75,7 @@ fun HomeScreen(
     val permissionState = rememberMultiplePermissionsState(permissionsToRequest)
     var showRationaleDialog by remember { mutableStateOf(false) }
 
-    androidx.compose.runtime.LaunchedEffect(permissionState.allPermissionsGranted) {
+    LaunchedEffect(permissionState.allPermissionsGranted) {
         if (permissionState.allPermissionsGranted) {
             viewModel.refresh()
         }
@@ -87,17 +91,17 @@ fun HomeScreen(
                         Strings.homeTitle,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 19.sp
+                        fontSize = Dimens.textTitle
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = { /* decorative to match design */ }) {
-                        Icon(Icons.Rounded.Menu, contentDescription = "Menu")
+                    IconButton(onClick = { }) {
+                        Icon(Icons.Rounded.Menu, contentDescription = Strings.menuDesc)
                     }
                 },
                 actions = {
                     IconButton(onClick = onSettingsClick) {
-                        Icon(Icons.Rounded.Settings, contentDescription = "Settings")
+                        Icon(Icons.Rounded.Settings, contentDescription = Strings.settingsDesc)
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
@@ -114,8 +118,11 @@ fun HomeScreen(
             Box(
                 modifier = Modifier.fillMaxSize().background(
                     Brush.radialGradient(
-                        colors = listOf(MaterialTheme.colorScheme.primary.copy(alpha = Dimens.alphaBackgroundTint), Color.Transparent),
-                        radius = 1000f
+                        colors = listOf(
+                            MaterialTheme.colorScheme.primary.copy(alpha = Dimens.alphaBackgroundTint),
+                            Color.Transparent
+                        ),
+                        radius = Constants.RADIAL_GLOW_RADIUS
                     )
                 )
             )
@@ -137,27 +144,36 @@ fun HomeScreen(
             } else if (bondedDevices.isEmpty()) {
                 EmptyState(message = Strings.noBondedDevices)
             } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)
-                ) {
-                    item {
-                        Text(
-                            text = "Paired Devices",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onBackground,
-                            modifier = Modifier.padding(top = 4.dp, bottom = 2.dp, start = 2.dp)
-                        )
-                    }
-                    items(bondedDevices, key = { it.address }) { device ->
-                        DeviceRow(device = device, onClick = { if (device.isConnected) onDeviceSelected(device.address) })
-                    }
-                    item {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        MonitorRangeAlertsCard(onClick = onSettingsClick)
+                // Adaptive padding: wider screens get larger horizontal insets (tablet/foldable/car).
+                BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                    val isWide = maxWidth >= 600.dp
+                    val horizontal = if (isWide) Dimens.screenPaddingHWide.scaled() else Dimens.screenPaddingH.scaled()
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(horizontal = horizontal, vertical = Dimens.spacingSm.scaled()),
+                        verticalArrangement = Arrangement.spacedBy(Dimens.spacingMd.scaled())
+                    ) {
+                        item {
+                            Text(
+                                text = Strings.pairedDevicesHeader,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = Dimens.textSectionSmall,
+                                color = MaterialTheme.colorScheme.onBackground,
+                                modifier = Modifier.padding(
+                                    top = Dimens.spacingXs.scaled(),
+                                    bottom = Dimens.spacingXxs.scaled(),
+                                    start = Dimens.spacingXxs.scaled()
+                                )
+                            )
+                        }
+                        items(bondedDevices, key = { it.address }) { device ->
+                            DeviceRow(device = device, onClick = { if (device.isConnected) onDeviceSelected(device.address) })
+                        }
+                        item {
+                            Spacer(modifier = Modifier.height(Dimens.spacingXs.scaled()))
+                            MonitorRangeAlertsCard(onClick = onSettingsClick)
+                        }
                     }
                 }
             }

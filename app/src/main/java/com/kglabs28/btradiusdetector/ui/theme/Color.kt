@@ -28,6 +28,14 @@ val OnBackgroundDark = Color(0xFFE2E2E6)
 val SurfaceDark = DeepNavy
 val OnSurfaceDark = Color(0xFFE2E2E6)
 
+// Shared semantic tokens — use these instead of inline Color(...) in UI files
+val ContentWhite = Color(0xFFFFFFFF)
+val ScrimBlack = Color(0xFF000000)
+val WarningAmber = Color(0xFFFFBB33)
+val ProximityHot = SonarGreen
+val ProximityWarm = SonarCyan
+val ProximityCold = WarningAmber
+
 // Fallback Light Palette (if needed, though dark navy is the focus)
 val PrimaryLight = Color(0xFF006D41)
 val OnPrimaryLight = Color.White

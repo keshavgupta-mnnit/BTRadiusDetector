@@ -21,6 +21,22 @@ object Constants {
     const val STICKY_REPEAT_INTERVAL_MS = 5_000L
     const val RSSI_SMOOTHING_WINDOW = 5
 
+    // Tracking UI tuning (no magic numbers in composables)
+    const val SIGNAL_SEGMENTS = 20
+    const val SIGNAL_HISTORY_MAX = 20
+    const val RADAR_RINGS = 4
+    const val RADAR_SWEEP_DURATION_MS = 5_000
+    const val DOT_PULSE_DURATION_MS = 1_200
+    const val COMPASS_TICK_STEP_DEG = 6
+    const val BEST_WEDGE_SWEEP_DEG = 35f
+    const val BEST_WEDGE_OFFSET_DEG = 17.5f
+    const val RSSI_RANGE_SPAN = 70
+    const val DOT_SCALE_BASE = 0.5f
+    const val DOT_SCALE_RANGE = 0.5f
+
+    // Background glow (no magic numbers in composables)
+    const val RADIAL_GLOW_RADIUS = 1000f
+
     // DataStore
     const val PREFS_NAME = "user_preferences"
     const val KEY_SHOW_ONBOARDING = "show_onboarding"

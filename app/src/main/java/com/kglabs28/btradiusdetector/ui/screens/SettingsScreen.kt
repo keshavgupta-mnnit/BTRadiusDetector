@@ -1,62 +1,44 @@
 package com.kglabs28.btradiusdetector.ui.screens
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Vibration
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kglabs28.btradiusdetector.ui.MainViewModel
-import com.kglabs28.btradiusdetector.ui.screens.home.HomeViewModel
+import com.kglabs28.btradiusdetector.ui.components.AppCard
+import com.kglabs28.btradiusdetector.ui.components.DeviceAlertRow
+import com.kglabs28.btradiusdetector.ui.components.SettingRow
 import com.kglabs28.btradiusdetector.ui.theme.BTRadiusDetectorTheme
-import com.kglabs28.btradiusdetector.ui.theme.SonarGreen
 import com.kglabs28.btradiusdetector.utils.AppUtils
+import com.kglabs28.btradiusdetector.utils.Dimens
+import com.kglabs28.btradiusdetector.utils.Strings
+import com.kglabs28.btradiusdetector.utils.scaled
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,27 +46,59 @@ fun SettingsScreen(
     viewModel: MainViewModel,
     onBack: () -> Unit
 ) {
-    // Use HomeViewModel's bonded-device flow so the list is populated
-    // even though MainViewModel's list is only filled on tracking paths.
+    // Settings owns its state via SettingsViewModel (UDF); MainViewModel param kept
+    // for navigation compat and future range-alert service wiring.
     val context = LocalContext.current
-    val homeVm: HomeViewModel = viewModel(factory = HomeViewModel.factory(context))
-    val bondedDevices by homeVm.bondedDevices.collectAsState()
+    val settingsVm: SettingsViewModel = viewModel(factory = SettingsViewModel.factory(context))
 
-    androidx.compose.runtime.LaunchedEffect(Unit) { homeVm.refresh() }
+    val bondedDevices by settingsVm.bondedDevices.collectAsStateWithLifecycle()
+    val alertEnabled by settingsVm.alertEnabled.collectAsStateWithLifecycle()
+    val sound by settingsVm.sound.collectAsStateWithLifecycle()
+    val vibrationOn by settingsVm.vibrationOn.collectAsStateWithLifecycle()
 
-    val toggles = remember { mutableStateMapOf<String, Boolean>() }
-    var notificationSound by remember { mutableStateOf("Default") }
-    var vibrationOn by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) { settingsVm.refresh() }
 
+    SettingsContent(
+        deviceRows = bondedDevices.map { device ->
+            DeviceAlertUi(
+                address = device.address,
+                name = device.name ?: Strings.unknownDevice,
+                type = AppUtils.getDeviceTypeLabel(device.deviceClass, device.minorDeviceClass),
+                icon = AppUtils.getDeviceIcon(device.deviceClass, device.minorDeviceClass),
+                checked = alertEnabled[device.address] ?: device.isConnected
+            )
+        },
+        sound = sound,
+        vibrationLabel = if (vibrationOn) Strings.vibrationOn else Strings.vibrationOff,
+        onBack = onBack,
+        onToggleAlert = { address, enabled -> settingsVm.setAlertEnabled(address, enabled) },
+        onSoundClick = { settingsVm.toggleSound() },
+        onVibrationClick = { settingsVm.toggleVibration() }
+    )
+}
+
+/** Pure stateless content — previewable, adaptive via weight/fractions, no ViewModel coupling. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsContent(
+    deviceRows: List<DeviceAlertUi>,
+    sound: String,
+    vibrationLabel: String,
+    onBack: () -> Unit,
+    onToggleAlert: (String, Boolean) -> Unit,
+    onSoundClick: () -> Unit,
+    onVibrationClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
-                    Text("Settings", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Text(Strings.settingsTitle, fontWeight = FontWeight.Bold, fontSize = Dimens.textTitleSmall)
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = Strings.backDesc)
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
@@ -93,191 +107,108 @@ fun SettingsScreen(
                 )
             )
         },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = MaterialTheme.colorScheme.background,
+        modifier = modifier
     ) { padding ->
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = Dimens.screenPaddingH.scaled())
         ) {
             item {
                 Text(
-                    "Range Alerts",
+                    Strings.rangeAlertsTitle,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
+                    fontSize = Dimens.textSection,
                     color = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.padding(top = 4.dp)
+                    modifier = Modifier.padding(top = Dimens.spacingXs.scaled())
                 )
                 Text(
-                    "Get notified when devices go out of range or reconnect.",
-                    fontSize = 12.5.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
-                    modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
+                    Strings.rangeAlertsSubtitle,
+                    fontSize = Dimens.textCaption,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = Dimens.alphaSubtleText),
+                    modifier = Modifier.padding(
+                        top = Dimens.spacingXxs.scaled(),
+                        bottom = Dimens.spacingMd.scaled()
+                    )
                 )
             }
 
-            if (bondedDevices.isEmpty()) {
+            if (deviceRows.isEmpty()) {
                 item {
                     Text(
-                        "No paired devices found.",
-                        fontSize = 13.sp,
+                        Strings.noPairedDevicesShort,
+                        fontSize = Dimens.textCaption,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 12.dp)
+                        modifier = Modifier.padding(vertical = Dimens.spacingMd.scaled())
                     )
                 }
             } else {
-                items(bondedDevices, key = { it.address }) { device ->
-                    val enabled = toggles.getOrPut(device.address) { device.isConnected }
-                    Card(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp).fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier.size(42.dp).clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    AppUtils.getDeviceIcon(device.deviceClass, device.minorDeviceClass),
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.size(21.dp)
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    device.name ?: "Unknown Device",
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 14.5.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    AppUtils.getDeviceTypeLabel(device.deviceClass, device.minorDeviceClass),
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                                )
-                            }
-                            Switch(
-                                checked = enabled,
-                                onCheckedChange = { toggles[device.address] = it },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = Color.White,
-                                    checkedTrackColor = SonarGreen,
-                                    uncheckedThumbColor = Color.White.copy(alpha = 0.8f),
-                                    uncheckedTrackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
-                                )
-                            )
-                        }
-                    }
+                items(deviceRows, key = { it.address }) { row ->
+                    DeviceAlertRow(
+                        icon = row.icon,
+                        deviceName = row.name,
+                        deviceType = row.type,
+                        checked = row.checked,
+                        onCheckedChange = { onToggleAlert(row.address, it) }
+                    )
                 }
             }
 
             item {
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(Dimens.spacingMd.scaled()))
                 Text(
-                    "Other Settings",
+                    Strings.otherSettingsTitle,
                     fontWeight = FontWeight.SemiBold,
-                    fontSize = 14.sp,
+                    fontSize = Dimens.textSectionSmall,
                     color = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.padding(bottom = 10.dp)
+                    modifier = Modifier.padding(bottom = Dimens.spacingSm.scaled())
                 )
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                ) {
-                    OtherSettingRow(
+                AppCard(modifier = Modifier.fillMaxWidth()) {
+                    SettingRow(
                         icon = Icons.Rounded.Notifications,
-                        title = "Notification sound",
-                        value = notificationSound,
-                        onClick = { notificationSound = if (notificationSound == "Default") "Chime" else "Default" }
+                        title = Strings.notificationSoundTitle,
+                        value = sound,
+                        onClick = onSoundClick
                     )
-                    OtherSettingRow(
+                    SettingRow(
                         icon = Icons.Rounded.Vibration,
-                        title = "Vibration",
-                        value = if (vibrationOn) "On" else "Off",
-                        onClick = { vibrationOn = !vibrationOn }
+                        title = Strings.vibrationTitle,
+                        value = vibrationLabel,
+                        onClick = onVibrationClick
                     )
-                    OtherSettingRow(
+                    SettingRow(
                         icon = Icons.Rounded.Info,
-                        title = "About",
+                        title = Strings.aboutTitle,
                         value = null,
                         showDivider = false,
                         onClick = { }
                     )
                 }
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(Dimens.spacingLg.scaled()))
             }
         }
     }
 }
 
-@Composable
-private fun OtherSettingRow(
-    icon: ImageVector,
-    title: String,
-    value: String?,
-    showDivider: Boolean = true,
-    onClick: () -> Unit
-) {
-    Column {
-        Row(
-            modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 13.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                icon, contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(21.dp)
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                title, fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.weight(1f)
-            )
-            if (value != null) {
-                Text(
-                    value, fontSize = 12.5.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-            }
-            Icon(
-                Icons.Rounded.ChevronRight, contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                modifier = Modifier.size(20.dp)
-            )
-        }
-        if (showDivider) {
-            Box(
-                modifier = Modifier.fillMaxWidth().padding(start = 47.dp).height(1.dp)
-                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f))
-            )
-        }
-    }
-}
+data class DeviceAlertUi(
+    val address: String,
+    val name: String,
+    val type: String,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    val checked: Boolean
+)
 
 @Preview(showBackground = true, device = "spec:width=411dp,height=891dp")
 @Composable
-fun SettingsPreview() {
+private fun SettingsContentPreview() {
     BTRadiusDetectorTheme(darkTheme = true) {
-        Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
-            Box(modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
-                Column {
-                    Text("Range Alerts", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
-                    Text(
-                        "Get notified when devices go out of range or reconnect.",
-                        fontSize = 12.5.sp, color = Color.Gray
-                    )
-                }
-            }
-        }
+        SettingsContent(
+            deviceRows = emptyList(),
+            sound = Strings.notificationSoundDefault,
+            vibrationLabel = Strings.vibrationOn,
+            onBack = {},
+            onToggleAlert = { _, _ -> },
+            onSoundClick = {},
+            onVibrationClick = {}
+        )
     }
 }

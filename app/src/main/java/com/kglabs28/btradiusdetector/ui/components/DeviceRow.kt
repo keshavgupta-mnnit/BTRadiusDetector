@@ -24,86 +24,109 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.kglabs28.btradiusdetector.domain.model.BluetoothDeviceModel
+import androidx.compose.ui.tooling.preview.Preview
+import com.kglabs28.btradiusdetector.ui.theme.BTRadiusDetectorTheme
 import com.kglabs28.btradiusdetector.ui.theme.SonarGreen
 import com.kglabs28.btradiusdetector.utils.AppUtils
 import com.kglabs28.btradiusdetector.utils.Dimens
+import com.kglabs28.btradiusdetector.utils.Strings
 import com.kglabs28.btradiusdetector.utils.scaled
 
+/**
+ * Paired-device row. Stateless — [device] in, [onClick] out. Previewable.
+ */
 @Composable
 fun DeviceRow(
-    device: BluetoothDeviceModel,
-    onClick: () -> Unit
+    device: com.kglabs28.btradiusdetector.domain.model.BluetoothDeviceModel,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val connected = device.isConnected
     val contentAlpha = if (connected) 1f else Dimens.alphaDisabledContent
 
     Surface(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .then(
                 if (connected) Modifier.border(
-                    1.dp,
-                    SonarGreen.copy(alpha = 0.7f),
+                    Dimens.borderWidthThin.scaled(),
+                    SonarGreen.copy(alpha = Dimens.alphaBuzzBorder),
                     RoundedCornerShape(Dimens.cornerRadiusCard.scaled())
                 ) else Modifier
             )
             .clickable(enabled = connected, onClick = onClick),
         shape = RoundedCornerShape(Dimens.cornerRadiusCard.scaled()),
         color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 0.dp
+        tonalElevation = Dimens.elevationNone.scaled()
     ) {
         Row(
             modifier = Modifier
-                .padding(horizontal = 14.dp, vertical = 13.dp)
+                .padding(
+                    horizontal = Dimens.cardPaddingH.scaled(),
+                    vertical = Dimens.cardPaddingV.scaled()
+                )
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(Dimens.iconCircleSizeRow.scaled())
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)),
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = Dimens.alphaCardTint)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = AppUtils.getDeviceIcon(device.deviceClass, device.minorDeviceClass),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = contentAlpha),
-                    modifier = Modifier.size(22.dp)
+                    modifier = Modifier.size(Dimens.iconSizeCard.scaled())
                 )
             }
 
-            Spacer(modifier = Modifier.width(14.dp))
+            Spacer(modifier = Modifier.width(Dimens.spacingMd.scaled()))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = device.name ?: "Unknown Device",
+                    text = device.name ?: Strings.unknownDevice,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp,
+                    fontSize = Dimens.textBody,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = contentAlpha)
                 )
-                Spacer(modifier = Modifier.width(2.dp))
                 Text(
-                    text = "${AppUtils.getDeviceTypeLabel(device.deviceClass, device.minorDeviceClass)} • ${if (connected) "Connected" else "Paired"}",
+                    text = "${AppUtils.getDeviceTypeLabel(device.deviceClass, device.minorDeviceClass)} • ${if (connected) Strings.connected else Strings.paired}",
                     style = MaterialTheme.typography.bodySmall,
-                    fontSize = 12.5.sp,
+                    fontSize = Dimens.textCaption,
                     color = if (connected)
                         SonarGreen
                     else
-                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
+                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = Dimens.alphaSubtleText)
                 )
             }
 
             Icon(
                 imageVector = Icons.Rounded.ChevronRight,
                 contentDescription = null,
-                modifier = Modifier.size(22.dp),
+                modifier = Modifier.size(Dimens.iconChevronSizeSmall.scaled()),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha)
             )
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun DeviceRowPreview() {
+    BTRadiusDetectorTheme(darkTheme = true) {
+        DeviceRow(
+            device = com.kglabs28.btradiusdetector.domain.model.BluetoothDeviceModel(
+                address = "00:00:00:00:00:00",
+                name = "Keshav's Buds Pro",
+                deviceClass = android.bluetooth.BluetoothClass.Device.Major.AUDIO_VIDEO,
+                minorDeviceClass = 0,
+                isConnected = true
+            ),
+            onClick = {}
+        )
     }
 }
