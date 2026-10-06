@@ -1,5 +1,6 @@
 package com.kglabs28.btradiusdetector.data
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothClass
@@ -13,6 +14,9 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.core.content.ContextCompat
 import com.kglabs28.btradiusdetector.data.util.MovingAverageFilter
 import com.kglabs28.btradiusdetector.domain.model.BluetoothDeviceModel
 import com.kglabs28.btradiusdetector.utils.Constants
@@ -29,18 +33,53 @@ class BleRssiRepository(private val context: Context) {
 
     private val filter = MovingAverageFilter(Constants.RSSI_SMOOTHING_WINDOW)
 
+    fun hasConnectPermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.BLUETOOTH_CONNECT
+            ) == PackageManager.PERMISSION_GRANTED
+        } else {
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.BLUETOOTH
+            ) == PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    fun hasScanPermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.BLUETOOTH_SCAN
+            ) == PackageManager.PERMISSION_GRANTED
+        } else {
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        }
+    }
+
     @SuppressLint("MissingPermission")
     fun getBondedDevices(): List<BluetoothDeviceModel> {
-        return bluetoothAdapter?.bondedDevices?.map { device ->
-            BluetoothDeviceModel(
-                address = device.address,
-                name = device.name ?: "Unknown Device",
-                deviceClass = device.bluetoothClass?.majorDeviceClass
-                    ?: BluetoothClass.Device.Major.UNCATEGORIZED,
-                minorDeviceClass = device.bluetoothClass?.deviceClass ?: 0,
-                isConnected = isDeviceConnected(device)
-            )
-        } ?: emptyList()
+        if (!hasConnectPermission()) {
+            return emptyList()
+        }
+        return try {
+            bluetoothAdapter?.bondedDevices?.map { device ->
+                BluetoothDeviceModel(
+                    address = device.address,
+                    name = runCatching { device.name }.getOrNull() ?: "Unknown Device",
+                    deviceClass = runCatching { device.bluetoothClass?.majorDeviceClass }.getOrNull()
+                        ?: BluetoothClass.Device.Major.UNCATEGORIZED,
+                    minorDeviceClass = runCatching { device.bluetoothClass?.deviceClass }.getOrNull() ?: 0,
+                    isConnected = isDeviceConnected(device)
+                )
+            } ?: emptyList()
+        } catch (_: SecurityException) {
+            emptyList()
+        }
     }
 
     @SuppressLint("MissingPermission")
@@ -58,9 +97,17 @@ class BleRssiRepository(private val context: Context) {
             addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)
             addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED)
         }
-        context.registerReceiver(receiver, intentFilter)
+        try {
+            context.registerReceiver(receiver, intentFilter)
+        } catch (_: Exception) {
+        }
 
-        awaitClose { context.unregisterReceiver(receiver) }
+        awaitClose {
+            try {
+                context.unregisterReceiver(receiver)
+            } catch (_: Exception) {
+            }
+        }
     }
 
     /**
@@ -70,12 +117,18 @@ class BleRssiRepository(private val context: Context) {
      */
     @SuppressLint("MissingPermission")
     fun isConnected(address: String): Boolean {
-        val device = bluetoothAdapter?.bondedDevices?.find { it.address == address } ?: return false
-        return isDeviceConnected(device)
+        if (!hasConnectPermission()) return false
+        return try {
+            val device = bluetoothAdapter?.bondedDevices?.find { it.address == address } ?: return false
+            isDeviceConnected(device)
+        } catch (_: SecurityException) {
+            false
+        }
     }
 
     @SuppressLint("MissingPermission")
     private fun isDeviceConnected(device: BluetoothDevice): Boolean {
+        if (!hasConnectPermission()) return false
         val profiles = intArrayOf(
             BluetoothProfile.GATT,
             BluetoothProfile.A2DP,
@@ -92,6 +145,11 @@ class BleRssiRepository(private val context: Context) {
 
     @SuppressLint("MissingPermission")
     fun getRssiFlow(targetDeviceAddress: String): Flow<Int> = callbackFlow {
+        if (!hasScanPermission()) {
+            close(Exception("Bluetooth Scan permission not granted."))
+            return@callbackFlow
+        }
+
         val settings = ScanSettings.Builder()
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
             .build()
@@ -108,15 +166,24 @@ class BleRssiRepository(private val context: Context) {
             }
         }
 
-        if (scanner == null) {
+        val currentScanner = scanner
+        if (currentScanner == null) {
             close(Exception("BLE Scanner not available. Check if Bluetooth is on."))
             return@callbackFlow
         }
 
-        scanner?.startScan(null, settings, callback)
+        try {
+            currentScanner.startScan(null, settings, callback)
+        } catch (e: SecurityException) {
+            close(e)
+            return@callbackFlow
+        }
 
         awaitClose {
-            scanner?.stopScan(callback)
+            try {
+                currentScanner.stopScan(callback)
+            } catch (_: Exception) {
+            }
             filter.clear()
         }
     }

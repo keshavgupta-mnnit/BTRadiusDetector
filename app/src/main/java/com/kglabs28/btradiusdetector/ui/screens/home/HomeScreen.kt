@@ -12,14 +12,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -30,8 +31,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
@@ -40,7 +42,6 @@ import com.kglabs28.btradiusdetector.ui.components.EmptyState
 import com.kglabs28.btradiusdetector.ui.components.MonitorRangeAlertsCard
 import com.kglabs28.btradiusdetector.ui.components.PermissionRationaleDialog
 import com.kglabs28.btradiusdetector.ui.components.PermissionRequestContent
-import com.kglabs28.btradiusdetector.ui.components.SectionHeader
 import com.kglabs28.btradiusdetector.utils.Dimens
 import com.kglabs28.btradiusdetector.utils.Strings
 import com.kglabs28.btradiusdetector.utils.scaled
@@ -51,7 +52,7 @@ fun HomeScreen(
     onDeviceSelected: (String) -> Unit,
     onSettingsClick: () -> Unit
 ) {
-    val context = LocalContext.current
+    val context = androidx.compose.ui.platform.LocalContext.current
     val viewModel: HomeViewModel = viewModel(factory = HomeViewModel.factory(context))
 
     val permissionsToRequest = remember {
@@ -70,20 +71,40 @@ fun HomeScreen(
     val permissionState = rememberMultiplePermissionsState(permissionsToRequest)
     var showRationaleDialog by remember { mutableStateOf(false) }
 
+    androidx.compose.runtime.LaunchedEffect(permissionState.allPermissionsGranted) {
+        if (permissionState.allPermissionsGranted) {
+            viewModel.refresh()
+        }
+    }
+
     val bondedDevices by viewModel.bondedDevices.collectAsState()
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(Strings.homeTitle, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) },
+            CenterAlignedTopAppBar(
+                title = {
+                    Text(
+                        Strings.homeTitle,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 19.sp
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = { /* decorative to match design */ }) {
+                        Icon(Icons.Rounded.Menu, contentDescription = "Menu")
+                    }
+                },
                 actions = {
                     IconButton(onClick = onSettingsClick) {
                         Icon(Icons.Rounded.Settings, contentDescription = "Settings")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = Color.Transparent,
-                    titleContentColor = MaterialTheme.colorScheme.onBackground
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
+                    actionIconContentColor = MaterialTheme.colorScheme.onBackground
                 )
             )
         },
@@ -118,15 +139,24 @@ fun HomeScreen(
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(Dimens.spacingMd.scaled()),
-                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(Dimens.spacingMd.scaled())
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)
                 ) {
-                    item { SectionHeader(Strings.pairedDevicesHeader) }
-                    items(bondedDevices) { device ->
+                    item {
+                        Text(
+                            text = "Paired Devices",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onBackground,
+                            modifier = Modifier.padding(top = 4.dp, bottom = 2.dp, start = 2.dp)
+                        )
+                    }
+                    items(bondedDevices, key = { it.address }) { device ->
                         DeviceRow(device = device, onClick = { if (device.isConnected) onDeviceSelected(device.address) })
                     }
                     item {
-                        Spacer(modifier = Modifier.height(Dimens.spacingXs.scaled()))
+                        Spacer(modifier = Modifier.height(4.dp))
                         MonitorRangeAlertsCard(onClick = onSettingsClick)
                     }
                 }
