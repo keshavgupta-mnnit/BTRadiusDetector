@@ -1,5 +1,6 @@
 package com.kglabs28.btradiusdetector.utils
 
+import android.bluetooth.BluetoothClass
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import com.kglabs28.btradiusdetector.ui.theme.ProximityCold
@@ -37,6 +38,16 @@ object SignalUtils {
 
     fun formattedHeading(heading: Float): String =
         Strings.headingLabel(heading.toInt(), AppUtils.getCardinalDirection(heading))
+
+    /**
+     * Buzz action label for a Bluetooth major device class, or null when the
+     * class has no buzzable companion surface yet (watches today; headphones,
+     * earbuds and speakers hide the button instead of showing a dead one).
+     */
+    fun buzzLabelFor(majorClass: Int): String? = when (majorClass) {
+        BluetoothClass.Device.Major.WEARABLE -> Strings.buzzMyWatch
+        else -> null
+    }
 
     /**
      * Signed turn from [heading] toward [peakHeading], in (-180, 180].

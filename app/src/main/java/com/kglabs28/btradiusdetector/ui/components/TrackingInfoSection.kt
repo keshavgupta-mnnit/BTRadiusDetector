@@ -10,11 +10,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Watch
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import com.kglabs28.btradiusdetector.ui.components.BatteryCard
-import com.kglabs28.btradiusdetector.ui.components.HeadingCard
-import com.kglabs28.btradiusdetector.ui.components.OutlineActionButton
-import com.kglabs28.btradiusdetector.ui.components.SignalStrengthCard
 import com.kglabs28.btradiusdetector.utils.Dimens
+import com.kglabs28.btradiusdetector.utils.SignalUtils
 import com.kglabs28.btradiusdetector.utils.Strings
 import com.kglabs28.btradiusdetector.utils.scaled
 
@@ -36,12 +33,16 @@ fun TrackingInfoSection(
                 BatteryCard(percent = battery)
             }
         }
-        Spacer(modifier = Modifier.height(Dimens.spacingMd.scaled()))
-        OutlineActionButton(
-            label = Strings.buzzMyWatch,
-            leadingIcon = Icons.Rounded.Watch,
-            onClick = onBuzzClick,
-            modifier = Modifier.fillMaxWidth()
-        )
+        // Buzz surface is type-driven, never hardcoded per device: only
+        // classes with a buzzable companion show the button, with their label.
+        SignalUtils.buzzLabelFor(state.majorClass)?.let { buzzLabel ->
+            Spacer(modifier = Modifier.height(Dimens.spacingMd.scaled()))
+            OutlineActionButton(
+                label = buzzLabel,
+                leadingIcon = Icons.Rounded.Watch,
+                onClick = onBuzzClick,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }

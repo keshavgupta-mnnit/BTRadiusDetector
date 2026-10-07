@@ -46,6 +46,7 @@ object Constants {
     // Live-link RSSI polling (no magic numbers in repository)
     const val GATT_POLL_MS = 2_000L
     const val GATT_RETRY_MS = 5_000L
+    const val GATT_BATTERY_RETRY_MS = 30_000L
     const val STALE_CHECK_MS = 5_000L
     const val STALE_TIMEOUT_MS = 10_000L
 

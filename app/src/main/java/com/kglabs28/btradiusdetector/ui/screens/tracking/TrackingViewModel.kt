@@ -24,6 +24,7 @@ import kotlinx.coroutines.launch
 data class TrackingUiState(
     val deviceName: String = "",
     val isConnected: Boolean = true,
+    val majorClass: Int = 0,
     val heading: Float = 0f,
     val cardinal: String = "N",
     val rssi: Int = Constants.RSSI_FLOOR,
@@ -53,8 +54,7 @@ class TrackingViewModel(
         .onStart { emit(Constants.RSSI_FLOOR) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Constants.RSSI_FLOOR)
 
-    private val battery = BluetoothUtils.getBatteryFlow(appContext, address)
-        .onStart { emit(null) }
+    private val battery = BluetoothUtils.observeBatteryLevel(address)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     private val heading = CompassUtils.getHeadingFlow(appContext)
@@ -67,6 +67,7 @@ class TrackingViewModel(
         TrackingUiState(
             deviceName = device?.name ?: "",
             isConnected = device?.isConnected ?: true,
+            majorClass = device?.deviceClass ?: 0,
             heading = heading,
             cardinal = AppUtils.getCardinalDirection(heading),
             rssi = rssi,
