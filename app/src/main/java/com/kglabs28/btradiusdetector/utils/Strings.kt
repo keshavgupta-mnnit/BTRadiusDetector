@@ -71,8 +71,6 @@ object Strings {
     const val backgroundAlertsRestricted = "Restricted"
     const val backgroundAlertsNote = "Without this, you can miss real-time updates."
     const val allowBackgroundAlerts = "ALLOW BACKGROUND ALERTS"
-    const val recentActivityTitle = "Recent activity"
-    const val noRecentActivity = "No recent alerts for this device."
     const val activityNotified = "Notified"
     const val activityAvoided = "Avoided"
     const val historyTitle = "Notification history"

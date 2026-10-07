@@ -10,6 +10,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -27,9 +28,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.kglabs28.btradiusdetector.ui.components.AlertActivitySection
 import com.kglabs28.btradiusdetector.ui.components.AlertTogglesCard
 import com.kglabs28.btradiusdetector.ui.components.DeviceHeaderCard
+import com.kglabs28.btradiusdetector.ui.components.OutlineActionButton
 import com.kglabs28.btradiusdetector.ui.theme.BTRadiusDetectorTheme
 import com.kglabs28.btradiusdetector.utils.AppUtils
 import com.kglabs28.btradiusdetector.utils.Dimens
@@ -44,7 +45,8 @@ import com.kglabs28.btradiusdetector.utils.scaled
 @Composable
 fun DeviceAlertDetailsScreen(
     deviceId: String,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onHistoryClick: () -> Unit
 ) {
     val viewModel: DeviceAlertDetailsViewModel =
         viewModel(factory = DeviceAlertDetailsViewModel.factory(deviceId))
@@ -94,7 +96,14 @@ fun DeviceAlertDetailsScreen(
                 onEvent = viewModel::onEvent
             )
 
-            AlertActivitySection(entries = state.recentActivity)
+            Spacer(modifier = Modifier.height(Dimens.spacingMd.scaled()))
+
+            OutlineActionButton(
+                label = Strings.historyTitle,
+                leadingIcon = Icons.Rounded.History,
+                onClick = onHistoryClick,
+                modifier = Modifier.fillMaxWidth()
+            )
 
             Spacer(modifier = Modifier.height(Dimens.spacingLg.scaled()))
 
@@ -113,6 +122,6 @@ fun DeviceAlertDetailsScreen(
 @Composable
 private fun DeviceAlertDetailsPreview() {
     BTRadiusDetectorTheme(darkTheme = true) {
-        DeviceAlertDetailsScreen(deviceId = "00:00:00:00:00:00", onBack = {})
+        DeviceAlertDetailsScreen(deviceId = "00:00:00:00:00:00", onBack = {}, onHistoryClick = {})
     }
 }

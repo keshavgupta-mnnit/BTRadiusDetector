@@ -507,6 +507,13 @@ object BluetoothUtils {
 
             override fun onServicesDiscovered(g: android.bluetooth.BluetoothGatt, status: Int) {
                 if (status != android.bluetooth.BluetoothGatt.GATT_SUCCESS) return
+                // Debug only: full service table — looking for extra battery
+                // instances or vendor characteristics carrying per-bud levels.
+                val table = g.services?.joinToString(";") { service ->
+                    val chars = service.characteristics?.joinToString(",") { it.uuid.toString() } ?: ""
+                    "${service.uuid}[$chars]"
+                } ?: "none"
+                LogUtils.d(TAG, "gatt services=$table")
                 readBasLevel(g)
                 basPoll?.cancel()
                 basPoll = scope.launch {

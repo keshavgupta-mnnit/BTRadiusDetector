@@ -1,15 +1,11 @@
 package com.kglabs28.btradiusdetector.ui.components
 
-import com.kglabs28.btradiusdetector.ui.screens.alertdetails.AlertDetailsEvent
-import com.kglabs28.btradiusdetector.ui.screens.alertdetails.AlertDetailsUiState
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -25,12 +21,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import com.kglabs28.btradiusdetector.domain.model.AlertActivity
-import com.kglabs28.btradiusdetector.ui.components.AppCard
-import com.kglabs28.btradiusdetector.ui.components.SwitchSettingRow
+import com.kglabs28.btradiusdetector.ui.screens.alertdetails.AlertDetailsEvent
+import com.kglabs28.btradiusdetector.ui.screens.alertdetails.AlertDetailsUiState
 import com.kglabs28.btradiusdetector.ui.theme.ContentWhite
 import com.kglabs28.btradiusdetector.ui.theme.SonarGreen
-import com.kglabs28.btradiusdetector.utils.AppUtils
 import com.kglabs28.btradiusdetector.utils.Dimens
 import com.kglabs28.btradiusdetector.utils.Strings
 import com.kglabs28.btradiusdetector.utils.scaled
@@ -125,76 +119,5 @@ fun AlertTogglesCard(
             onCheckedChange = { onEvent(AlertDetailsEvent.VibrationToggled(it)) },
             showDivider = false
         )
-    }
-}
-
-/** Missed-notification feed: every recent decision for this device. */
-@Composable
-fun AlertActivitySection(
-    entries: List<AlertActivity>,
-    modifier: Modifier = Modifier
-) {
-    Column(modifier = modifier) {
-        Spacer(modifier = Modifier.height(Dimens.spacingMd.scaled()))
-        Text(
-            Strings.recentActivityTitle,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = Dimens.textSectionSmall,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(bottom = Dimens.spacingSm.scaled())
-        )
-        AppCard(modifier = Modifier.fillMaxWidth()) {
-            if (entries.isEmpty()) {
-                Text(
-                    Strings.noRecentActivity,
-                    fontSize = Dimens.textCaptionSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = Dimens.alphaSubtleText),
-                    modifier = Modifier.padding(
-                        horizontal = Dimens.cardPaddingH.scaled(),
-                        vertical = Dimens.cardPaddingV.scaled()
-                    )
-                )
-            } else {
-                entries.forEachIndexed { index, entry ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(
-                            horizontal = Dimens.cardPaddingH.scaled(),
-                            vertical = Dimens.spacingSm.scaled()
-                        ),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                entry.event,
-                                fontSize = Dimens.textLabel,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                AppUtils.formatElapsedTime(entry.atMillis),
-                                fontSize = Dimens.textCaptionSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = Dimens.alphaSubtleText)
-                            )
-                        }
-                        Text(
-                            if (entry.posted) Strings.activityNotified
-                            else "${Strings.activityAvoided} (${entry.reason.replace('_', ' ')})",
-                            fontSize = Dimens.textCaptionSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (entry.posted) SonarGreen
-                            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = Dimens.alphaSubtleText)
-                        )
-                    }
-                    if (index < entries.lastIndex) {
-                        Box(
-                            modifier = Modifier.fillMaxWidth()
-                                .padding(start = Dimens.cardPaddingH.scaled())
-                                .height(Dimens.dividerH.scaled())
-                                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = Dimens.alphaDivider))
-                        )
-                    }
-                }
-            }
-        }
     }
 }

@@ -165,7 +165,8 @@ fun AppNavigation(
                 is NavRoute.AlertDetails -> NavEntry(key) {
                     DeviceAlertDetailsScreen(
                         deviceId = key.deviceId,
-                        onBack = { backStack.removeLastOrNull() }
+                        onBack = { backStack.removeLastOrNull() },
+                        onHistoryClick = { backStack.add(NavRoute.History) }
                     )
                 }
 

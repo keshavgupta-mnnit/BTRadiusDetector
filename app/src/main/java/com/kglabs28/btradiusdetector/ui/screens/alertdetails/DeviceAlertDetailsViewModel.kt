@@ -4,10 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.kglabs28.btradiusdetector.BTRadiusDetectorApp
-import com.kglabs28.btradiusdetector.data.AlertHistoryStore
 import com.kglabs28.btradiusdetector.data.AlertSettingsRepository
 import com.kglabs28.btradiusdetector.data.local.AppDatabase
-import com.kglabs28.btradiusdetector.domain.model.AlertActivity
 import com.kglabs28.btradiusdetector.domain.usecase.ObserveAlertSettingsUseCase
 import com.kglabs28.btradiusdetector.domain.usecase.UpdateAlertSettingUseCase
 import com.kglabs28.btradiusdetector.utils.BluetoothUtils
@@ -29,8 +27,7 @@ data class AlertDetailsUiState(
     val notifyOnDisconnect: Boolean = false,
     val notifyOnReconnect: Boolean = false,
     val soundEnabled: Boolean = false,
-    val vibrationEnabled: Boolean = true,
-    val recentActivity: List<AlertActivity> = emptyList()
+    val vibrationEnabled: Boolean = true
 )
 
 /** Every user intent on this screen funnels through one handler. */
@@ -56,9 +53,8 @@ class DeviceAlertDetailsViewModel(
         BluetoothUtils.getBondedDevicesFlow(BTRadiusDetectorApp.appContext).map { devices ->
             devices.find { it.address == address }
         },
-        observeAlerts.observeByAddress(address),
-        AlertHistoryStore.getInstance(BTRadiusDetectorApp.appContext).history
-    ) { device, row, history ->
+        observeAlerts.observeByAddress(address)
+    ) { device, row ->
         AlertDetailsUiState(
             deviceName = device?.name ?: Strings.unknownDevice,
             majorClass = device?.deviceClass ?: 0,
@@ -68,8 +64,7 @@ class DeviceAlertDetailsViewModel(
             notifyOnDisconnect = row?.notifyOnDisconnect ?: false,
             notifyOnReconnect = row?.notifyOnReconnect ?: false,
             soundEnabled = row?.soundEnabled ?: false,
-            vibrationEnabled = row?.vibrationEnabled ?: false,
-            recentActivity = history.filter { it.address == address }
+            vibrationEnabled = row?.vibrationEnabled ?: false
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AlertDetailsUiState())
 
