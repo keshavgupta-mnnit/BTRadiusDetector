@@ -21,6 +21,7 @@ import android.os.Build
 import androidx.core.content.ContextCompat
 import com.kglabs28.btradiusdetector.data.util.MovingAverageFilter
 import com.kglabs28.btradiusdetector.domain.model.BluetoothDeviceModel
+import com.kglabs28.btradiusdetector.domain.model.NearbyDevice
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -585,6 +586,104 @@ object BluetoothUtils {
         if (device?.address != address) return null
         val level = sticky.getIntExtra(EXTRA_BATTERY_LEVEL, BATTERY_UNKNOWN)
         return if (level in 0..100) level else null
+    }
+
+    // ---- Nearby (unfiltered) BLE scan: every overheard radio ----
+
+    /**
+     * All nearby advertisers, bonded or not — the single-bud finder. Each
+     * disconnected bud advertises under its own address, which usually
+     * differs from the bonded pair address, so filtering by bond would hide
+     * exactly the bud you're looking for. Emits a snapshot ~1/sec, newest
+     * strongest first, entries older than [STALE_TIMEOUT_MS] pruned.
+     */
+    @SuppressLint("MissingPermission")
+    fun getNearbyBleFlow(context: Context): Flow<List<NearbyDevice>> = callbackFlow {
+        if (!hasScanPermission(context)) {
+            close(Exception("Bluetooth Scan permission not granted."))
+            return@callbackFlow
+        }
+        val scope = this
+        val seen = mutableMapOf<String, NearbyDevice>()
+
+        fun snapshot(): List<NearbyDevice> {
+            val cutoff = android.os.SystemClock.elapsedRealtime() - Constants.STALE_TIMEOUT_MS
+            seen.entries.removeAll { it.value.lastSeenMillis < cutoff }
+            return seen.values.sortedByDescending { it.rssi }
+        }
+
+        val settings = ScanSettings.Builder()
+            .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+            .build()
+
+        var bleCallback: ScanCallback? = null
+
+        fun startBleScan() {
+            if (bleCallback != null) return
+            val scanner = bluetoothAdapter(context)?.bluetoothLeScanner ?: return
+            val callback = object : ScanCallback() {
+                override fun onScanResult(callbackType: Int, result: ScanResult) {
+                    val address = result.device.address ?: return
+                    seen[address] = NearbyDevice(
+                        address = address,
+                        name = runCatching { result.device.name }.getOrNull()
+                            ?: result.scanRecord?.deviceName,
+                        rssi = result.rssi,
+                        lastSeenMillis = android.os.SystemClock.elapsedRealtime()
+                    )
+                }
+
+                override fun onBatchScanResults(results: List<ScanResult>) {
+                    results.forEach { result ->
+                        val address = result.device.address ?: return@forEach
+                        seen[address] = NearbyDevice(
+                            address = address,
+                            name = runCatching { result.device.name }.getOrNull()
+                                ?: result.scanRecord?.deviceName,
+                            rssi = result.rssi,
+                            lastSeenMillis = android.os.SystemClock.elapsedRealtime()
+                        )
+                    }
+                }
+
+                override fun onScanFailed(errorCode: Int) {
+                    bleCallback = null
+                    scope.launch {
+                        kotlinx.coroutines.delay(Constants.SCAN_RETRY_DELAY_MS)
+                        startBleScan()
+                    }
+                }
+            }
+            runCatching { scanner.startScan(null, settings, callback) }
+                .onSuccess { bleCallback = callback }
+                .onFailure {
+                    scope.launch {
+                        kotlinx.coroutines.delay(Constants.SCAN_RETRY_DELAY_MS)
+                        startBleScan()
+                    }
+                }
+        }
+
+        fun stopBleScan() {
+            bleCallback?.let { callback ->
+                runCatching { bluetoothAdapter(context)?.bluetoothLeScanner?.stopScan(callback) }
+            }
+            bleCallback = null
+        }
+
+        startBleScan()
+        // Snapshot ticker: collectors get a fresh sorted list periodically.
+        val ticker = scope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(Constants.NEARBY_SNAPSHOT_MS)
+                trySend(snapshot())
+            }
+        }
+
+        awaitClose {
+            ticker.cancel()
+            stopBleScan()
+        }
     }
 
     // GATT Battery Service (0x180F) / Battery Level (0x2A19) — standard SIG UUIDs.

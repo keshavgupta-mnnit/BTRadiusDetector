@@ -16,13 +16,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kglabs28.btradiusdetector.domain.model.BluetoothDeviceModel
-import com.kglabs28.btradiusdetector.ui.components.DeviceRow
-import com.kglabs28.btradiusdetector.ui.components.MonitorRangeAlertsCard
 import com.kglabs28.btradiusdetector.utils.Dimens
 import com.kglabs28.btradiusdetector.utils.Strings
 import com.kglabs28.btradiusdetector.utils.scaled
 
-/** Paired-device list with adaptive insets and the monitor card footer. */
+/** Paired-device list with adaptive insets and footer actions. */
 @Composable
 fun PairedDeviceList(
     devices: List<BluetoothDeviceModel>,

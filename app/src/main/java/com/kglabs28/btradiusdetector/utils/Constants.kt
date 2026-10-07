@@ -34,6 +34,7 @@ object Constants {
 
     // RSSI pipeline recovery (no magic numbers in repository)
     const val SCAN_RETRY_DELAY_MS = 3_000L
+    const val NEARBY_SNAPSHOT_MS = 1_000L
     const val GUIDANCE_DEAD_ZONE_DEG = 10f
 
     // Live-link RSSI polling (no magic numbers in repository)

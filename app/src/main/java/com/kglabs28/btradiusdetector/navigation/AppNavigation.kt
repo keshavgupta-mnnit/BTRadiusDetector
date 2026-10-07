@@ -35,6 +35,7 @@ import com.kglabs28.btradiusdetector.ui.screens.onboarding.OnboardingScreen
 import com.kglabs28.btradiusdetector.ui.screens.settings.SettingsScreen
 import com.kglabs28.btradiusdetector.ui.screens.tracking.TrackingScreen
 import com.kglabs28.btradiusdetector.ui.screens.home.HomeScreen
+import com.kglabs28.btradiusdetector.ui.screens.nearby.NearbyScreen
 import com.kglabs28.btradiusdetector.utils.AppUtils
 
 /**
@@ -145,6 +146,13 @@ fun AppNavigation(
                     HomeScreen(
                         onDeviceSelected = { deviceId -> backStack.add(NavRoute.Details(deviceId)) },
                         onSettingsClick = { backStack.add(NavRoute.Settings) }
+                    )
+                }
+
+                is NavRoute.Nearby -> NavEntry(key) {
+                    NearbyScreen(
+                        onBack = { backStack.removeLastOrNull() },
+                        onDeviceClick = { deviceId -> backStack.add(NavRoute.Details(deviceId)) }
                     )
                 }
 
