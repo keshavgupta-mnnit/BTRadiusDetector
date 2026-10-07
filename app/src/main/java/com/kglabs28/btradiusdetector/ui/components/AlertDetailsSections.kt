@@ -1,26 +1,35 @@
 package com.kglabs28.btradiusdetector.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import com.kglabs28.btradiusdetector.domain.model.AlertSoundMode
 import com.kglabs28.btradiusdetector.ui.screens.alertdetails.AlertDetailsEvent
 import com.kglabs28.btradiusdetector.ui.screens.alertdetails.AlertDetailsUiState
 import com.kglabs28.btradiusdetector.ui.theme.ContentWhite
@@ -108,16 +117,92 @@ fun AlertTogglesCard(
             checked = state.notifyOnReconnect,
             onCheckedChange = { onEvent(AlertDetailsEvent.NotifyReconnectToggled(it)) }
         )
-        SwitchSettingRow(
-            title = Strings.notificationSoundTitle,
-            checked = state.soundEnabled,
-            onCheckedChange = { onEvent(AlertDetailsEvent.SoundToggled(it)) }
+        SoundModeRow(
+            mode = state.soundMode,
+            onModeSelected = { onEvent(AlertDetailsEvent.SoundModeSelected(it)) }
         )
         SwitchSettingRow(
             title = Strings.vibrationTitle,
             checked = state.vibrationEnabled,
             onCheckedChange = { onEvent(AlertDetailsEvent.VibrationToggled(it)) },
             showDivider = false
+        )
+    }
+}
+
+/** Notification sound as Off / One time / Continuous picker dialog. */
+@Composable
+fun SoundModeRow(
+    mode: AlertSoundMode,
+    onModeSelected: (AlertSoundMode) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var showDialog by remember { mutableStateOf(false) }
+
+    fun label(m: AlertSoundMode): String = when (m) {
+        AlertSoundMode.OFF -> Strings.soundModeOff
+        AlertSoundMode.ONCE -> Strings.soundModeOnce
+        AlertSoundMode.CONTINUOUS -> Strings.soundModeContinuous
+    }
+
+    Column(modifier = modifier) {
+        Row(
+            modifier = Modifier.fillMaxWidth().clickable(onClick = { showDialog = true })
+                .padding(horizontal = Dimens.cardPaddingH.scaled(), vertical = Dimens.cardPaddingV.scaled()),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                Strings.notificationSoundTitle, fontSize = Dimens.textLabel,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                label(mode), fontSize = Dimens.textCaption,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = Dimens.alphaSubtleText)
+            )
+            Spacer(modifier = Modifier.width(Dimens.spacingSm.scaled()))
+            Icon(
+                Icons.Rounded.ChevronRight, contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = Dimens.alphaSubtleText),
+                modifier = Modifier.size(Dimens.iconChevronSize.scaled())
+            )
+        }
+        Box(
+            modifier = Modifier.fillMaxWidth()
+                .padding(start = Dimens.cardPaddingH.scaled())
+                .height(Dimens.dividerH.scaled())
+                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = Dimens.alphaDivider))
+        )
+    }
+
+    if (showDialog) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = { Text(Strings.notificationSoundTitle) },
+            text = {
+                Column {
+                    AlertSoundMode.values().forEach { option ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().clickable {
+                                onModeSelected(option)
+                                showDialog = false
+                            }.padding(vertical = Dimens.spacingSm.scaled()),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            androidx.compose.material3.RadioButton(
+                                selected = option == mode,
+                                onClick = {
+                                    onModeSelected(option)
+                                    showDialog = false
+                                }
+                            )
+                            Spacer(modifier = Modifier.width(Dimens.spacingSm.scaled()))
+                            Text(label(option), fontSize = Dimens.textLabel)
+                        }
+                    }
+                }
+            },
+            confirmButton = { }
         )
     }
 }

@@ -6,6 +6,8 @@ import com.kglabs28.btradiusdetector.data.AlertSettingsRepository
 import com.kglabs28.btradiusdetector.data.DisconnectIntentStore
 import com.kglabs28.btradiusdetector.data.local.AppDatabase
 import com.kglabs28.btradiusdetector.domain.model.AlertActivity
+import com.kglabs28.btradiusdetector.domain.model.AlertSoundMode
+import com.kglabs28.btradiusdetector.service.BeepService
 import com.kglabs28.btradiusdetector.utils.BluetoothUtils
 import com.kglabs28.btradiusdetector.utils.Constants
 import com.kglabs28.btradiusdetector.utils.LogUtils
@@ -51,6 +53,19 @@ class EnsureAlertUseCase(
             return false
         }
         LogUtils.d(TAG, "$name registered for Disconnect Notification")
+        val mode = AlertSoundMode.fromName(settings.soundMode)
+        if (mode == AlertSoundMode.CONTINUOUS) {
+            // Beep loop carries sight and sound until the user interacts;
+            // its own notification has the Stop action.
+            if (BeepService.start(appContext, address, name, settings.vibrationEnabled)) {
+                intentStore.clear(address)
+                record(address, name, EVENT_DISCONNECTED, posted = true, reason = "")
+                LogUtils.d(TAG, "Hence Triggering Notification for $name [mode=$mode]")
+                return true
+            }
+            // Service refused (background start denial) — degrade to one beep.
+        }
+        val useSound = mode == AlertSoundMode.ONCE
         NotificationUtils.notifySafely(
             appContext,
             NotificationUtils.disconnectNotificationId(address),
@@ -59,13 +74,15 @@ class EnsureAlertUseCase(
                 address,
                 Strings.disconnectTitle(name),
                 NotificationUtils.disconnectBody(appContext, settings, address),
-                settings.soundEnabled,
+                useSound,
                 settings.vibrationEnabled
             )
         )
         intentStore.clear(address)
         record(address, name, EVENT_DISCONNECTED, posted = true, reason = "")
-        LogUtils.d(TAG, "Hence Triggering Notification for $name")
+        LogUtils.d(TAG, "Hence Triggering Notification for $name " +
+            "[mode=$mode, vibration=${settings.vibrationEnabled}, " +
+            "channel=${NotificationUtils.channelForAlert(useSound, settings.vibrationEnabled)}]")
         return true
     }
 
@@ -85,6 +102,8 @@ class EnsureAlertUseCase(
             return false
         }
         LogUtils.d(TAG, "$name registered for Connect Notification")
+        // Reconnects are momentary: sound follows the mode unless fully off.
+        val reconnectSound = AlertSoundMode.fromName(settings.soundMode) != AlertSoundMode.OFF
         val battery = BluetoothUtils.getLastKnownBattery(appContext, address)
         NotificationUtils.notifySafely(
             appContext,
@@ -94,11 +113,13 @@ class EnsureAlertUseCase(
                 address,
                 Strings.reconnectTitle(name),
                 battery?.let { Strings.reconnectBodyWithBattery(it) } ?: Strings.reconnectBody,
-                settings.soundEnabled,
+                reconnectSound,
                 settings.vibrationEnabled
             )
         )
-        LogUtils.d(TAG, "Hence Triggering Notification for $name")
+        LogUtils.d(TAG, "Hence Triggering Notification for $name " +
+            "[sound=$reconnectSound, vibration=${settings.vibrationEnabled}, " +
+            "channel=${NotificationUtils.channelForAlert(reconnectSound, settings.vibrationEnabled)}]")
         record(address, name, EVENT_CONNECTED, posted = true, reason = "")
         return true
     }

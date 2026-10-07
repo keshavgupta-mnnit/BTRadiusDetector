@@ -85,6 +85,13 @@ object NotificationUtils {
         return builder
     }
 
+    /** Channel routing shared by builders and log lines (must never drift). */
+    fun channelForAlert(useSound: Boolean, useVibration: Boolean): String = when {
+        useSound -> Constants.CHANNEL_ID_SOUND
+        useVibration -> Constants.CHANNEL_ID_VIBRATE
+        else -> Constants.CHANNEL_ID_SILENT
+    }
+
     /** Red disconnect alert: "Lost connection to X" / "Device may be out of range." */
     fun buildDisconnectNotification(
         context: Context,
@@ -94,11 +101,7 @@ object NotificationUtils {
         useSound: Boolean,
         useVibration: Boolean
     ): Notification {
-        val channelId = when {
-            useSound -> Constants.CHANNEL_ID_SOUND
-            useVibration -> Constants.CHANNEL_ID_VIBRATE
-            else -> Constants.CHANNEL_ID_SILENT
-        }
+        val channelId = channelForAlert(useSound, useVibration)
         return baseAlertBuilder(context, deviceAddress, channelId, title, body, NotificationAccentDisconnect, isDisconnect = true)
             .setAutoCancel(true)
             .setPriority(if (useSound || useVibration) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_LOW)
@@ -114,11 +117,7 @@ object NotificationUtils {
         useSound: Boolean,
         useVibration: Boolean
     ): Notification {
-        val channelId = when {
-            useSound -> Constants.CHANNEL_ID_SOUND
-            useVibration -> Constants.CHANNEL_ID_VIBRATE
-            else -> Constants.CHANNEL_ID_SILENT
-        }
+        val channelId = channelForAlert(useSound, useVibration)
         return baseAlertBuilder(context, deviceAddress, channelId, title, body, NotificationAccentReconnect, isDisconnect = false)
             .setAutoCancel(true)
             .setPriority(if (useSound || useVibration) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_LOW)
@@ -137,6 +136,50 @@ object NotificationUtils {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
     }
+
+    /**
+     * Continuous-beep visual: red disconnect style, ongoing (swipe-proof),
+     * tap opens tracking AND stops the beep via the receiver trampoline,
+     * plus an explicit Stop action. No channel sound — the beep loop is the audio.
+     */
+    fun buildBeepingNotification(
+        context: Context,
+        deviceAddress: String,
+        title: String,
+        body: String,
+        useVibration: Boolean
+    ): android.app.Notification {
+        val channelId = if (useVibration) Constants.CHANNEL_ID_VIBRATE else Constants.CHANNEL_ID_SILENT
+        return baseAlertBuilder(context, deviceAddress, channelId, title, body, NotificationAccentDisconnect, isDisconnect = true)
+            .setOngoing(true)
+            .setAutoCancel(false)
+            .setContentIntent(stopBeepAndTrackIntent(context, deviceAddress, openTracking = true))
+            .addAction(
+                R.drawable.ic_notification_bt,
+                Strings.stopLabel,
+                stopBeepAndTrackIntent(context, deviceAddress, openTracking = false)
+            )
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .build()
+    }
+
+    fun stopBeepAndTrackIntent(context: Context, deviceAddress: String, openTracking: Boolean): PendingIntent {
+        val intent = Intent(context, com.kglabs28.btradiusdetector.receiver.BluetoothAlertReceiver::class.java).apply {
+            action = ACTION_STOP_BEEPING
+            putExtra(EXTRA_BEEP_ADDRESS, deviceAddress)
+            putExtra(EXTRA_BEEP_OPEN_TRACKING, openTracking)
+        }
+        return PendingIntent.getBroadcast(
+            context,
+            (deviceAddress + openTracking).hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
+    const val ACTION_STOP_BEEPING = "com.kglabs28.btradiusdetector.ACTION_STOP_BEEPING"
+    const val EXTRA_BEEP_ADDRESS = "extra_beep_address"
+    const val EXTRA_BEEP_OPEN_TRACKING = "extra_beep_open_tracking"
 
     fun disconnectNotificationId(address: String): Int =
         Constants.NOTIF_ID_DISCONNECT_BASE + address.hashCode()

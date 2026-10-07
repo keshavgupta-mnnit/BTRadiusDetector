@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.kglabs28.btradiusdetector.BTRadiusDetectorApp
 import com.kglabs28.btradiusdetector.data.AlertSettingsRepository
 import com.kglabs28.btradiusdetector.data.local.AppDatabase
+import com.kglabs28.btradiusdetector.domain.model.AlertSoundMode
 import com.kglabs28.btradiusdetector.domain.usecase.ObserveAlertSettingsUseCase
 import com.kglabs28.btradiusdetector.domain.usecase.UpdateAlertSettingUseCase
 import com.kglabs28.btradiusdetector.utils.BluetoothUtils
@@ -26,7 +27,7 @@ data class AlertDetailsUiState(
     val monitoringEnabled: Boolean = false,
     val notifyOnDisconnect: Boolean = false,
     val notifyOnReconnect: Boolean = false,
-    val soundEnabled: Boolean = false,
+    val soundMode: AlertSoundMode = AlertSoundMode.ONCE,
     val vibrationEnabled: Boolean = true
 )
 
@@ -35,7 +36,7 @@ sealed interface AlertDetailsEvent {
     data class MonitoringToggled(val enabled: Boolean) : AlertDetailsEvent
     data class NotifyDisconnectToggled(val enabled: Boolean) : AlertDetailsEvent
     data class NotifyReconnectToggled(val enabled: Boolean) : AlertDetailsEvent
-    data class SoundToggled(val enabled: Boolean) : AlertDetailsEvent
+    data class SoundModeSelected(val mode: AlertSoundMode) : AlertDetailsEvent
     data class VibrationToggled(val enabled: Boolean) : AlertDetailsEvent
 }
 
@@ -63,7 +64,7 @@ class DeviceAlertDetailsViewModel(
             monitoringEnabled = row?.monitoringEnabled ?: false,
             notifyOnDisconnect = row?.notifyOnDisconnect ?: false,
             notifyOnReconnect = row?.notifyOnReconnect ?: false,
-            soundEnabled = row?.soundEnabled ?: false,
+            soundMode = AlertSoundMode.fromName(row?.soundMode),
             vibrationEnabled = row?.vibrationEnabled ?: false
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AlertDetailsUiState())
@@ -77,8 +78,8 @@ class DeviceAlertDetailsViewModel(
                     updateAlerts.setNotifyOnDisconnect(address, event.enabled)
                 is AlertDetailsEvent.NotifyReconnectToggled ->
                     updateAlerts.setNotifyOnReconnect(address, event.enabled)
-                is AlertDetailsEvent.SoundToggled ->
-                    updateAlerts.setSound(address, event.enabled)
+                is AlertDetailsEvent.SoundModeSelected ->
+                    updateAlerts.setSoundMode(address, event.mode)
                 is AlertDetailsEvent.VibrationToggled ->
                     updateAlerts.setVibration(address, event.enabled)
             }

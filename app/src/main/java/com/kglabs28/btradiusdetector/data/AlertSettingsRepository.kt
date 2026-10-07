@@ -2,6 +2,7 @@ package com.kglabs28.btradiusdetector.data
 
 import com.kglabs28.btradiusdetector.data.local.AlertSettingsDao
 import com.kglabs28.btradiusdetector.data.local.AlertSettingsEntity
+import com.kglabs28.btradiusdetector.domain.model.AlertSoundMode
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -27,8 +28,8 @@ class AlertSettingsRepository(private val dao: AlertSettingsDao) {
     suspend fun setNotifyOnReconnect(address: String, enabled: Boolean) =
         upsertCopy(address) { copy(notifyOnReconnect = enabled) }
 
-    suspend fun setSoundEnabled(address: String, enabled: Boolean) =
-        upsertCopy(address) { copy(soundEnabled = enabled) }
+    suspend fun setSoundMode(address: String, mode: AlertSoundMode) =
+        upsertCopy(address) { copy(soundMode = mode.name) }
 
     suspend fun setVibrationEnabled(address: String, enabled: Boolean) =
         upsertCopy(address) { copy(vibrationEnabled = enabled) }

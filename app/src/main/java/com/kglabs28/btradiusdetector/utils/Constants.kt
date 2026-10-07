@@ -14,6 +14,11 @@ object Constants {
     // Notification IDs
     const val NOTIF_ID_DISCONNECT_BASE = 1000
     const val NOTIF_ID_RECONNECT_BASE = 2000
+    const val NOTIF_ID_BEEPING = 4000
+
+    // Beep loop tuning (no magic numbers in the service)
+    const val BEEP_VIBRATE_INTERVAL_MS = 2_000L
+    const val BEEP_VIBRATE_DURATION_MS = 400L
 
     // Behavior tuning
     const val RSSI_SMOOTHING_WINDOW = 5
