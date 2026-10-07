@@ -22,6 +22,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // Stale shade rows from previous installs (old text/design) die here —
+        // opening the app means their job is done.
+        runCatching { androidx.core.app.NotificationManagerCompat.from(this).cancelAll() }
         deepLinkDeviceId = intent?.getStringExtra(EXTRA_DEVICE_ADDRESS)
 
         setContent {

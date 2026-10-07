@@ -7,12 +7,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavKey
@@ -21,13 +26,16 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
+import com.kglabs28.btradiusdetector.ui.components.BatteryGateContent
 import com.kglabs28.btradiusdetector.ui.components.PermissionRationaleDialog
 import com.kglabs28.btradiusdetector.ui.components.PermissionRequestContent
 import com.kglabs28.btradiusdetector.ui.screens.alertdetails.DeviceAlertDetailsScreen
+import com.kglabs28.btradiusdetector.ui.screens.history.HistoryScreen
 import com.kglabs28.btradiusdetector.ui.screens.onboarding.OnboardingScreen
 import com.kglabs28.btradiusdetector.ui.screens.settings.SettingsScreen
 import com.kglabs28.btradiusdetector.ui.screens.tracking.TrackingScreen
 import com.kglabs28.btradiusdetector.ui.screens.home.HomeScreen
+import com.kglabs28.btradiusdetector.utils.AppUtils
 
 /**
  * Navigation carries only primitives (device addresses) between destinations.
@@ -61,6 +69,21 @@ fun AppNavigation(
     val permissionState = rememberMultiplePermissionsState(permissionsToRequest)
     var showRationaleDialog by remember { mutableStateOf(false) }
 
+    // Battery whitelist status refreshes on every resume (back from system settings).
+    val context = LocalContext.current
+    val activity = context as? android.app.Activity
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var resumeTick by remember { mutableStateOf(0) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) resumeTick++
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    val batteryUnrestricted = remember(resumeTick) { AppUtils.isBatteryOptimizationIgnored(context) }
+    var batteryGateDismissed by remember { mutableStateOf(false) }
+
     if (!permissionState.allPermissionsGranted) {
         if (showRationaleDialog) {
             PermissionRationaleDialog(
@@ -74,9 +97,23 @@ fun AppNavigation(
                     onRequestPermissions = {
                         if (permissionState.shouldShowRationale) showRationaleDialog = true
                         else permissionState.launchMultiplePermissionRequest()
-                    }
+                    },
+                    batteryUnrestricted = batteryUnrestricted,
+                    onBatteryClick = { activity?.let { AppUtils.requestIgnoreBatteryOptimizations(it) } }
                 )
             }
+        }
+        return
+    }
+
+    // Runtime permissions pass, but without the whitelist Doze can still
+    // hold alerts until the app opens — one explicit gate for it.
+    if (!batteryUnrestricted && !batteryGateDismissed) {
+        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            BatteryGateContent(
+                onAllow = { activity?.let { AppUtils.requestIgnoreBatteryOptimizations(it) } },
+                onSkip = { batteryGateDismissed = true }
+            )
         }
         return
     }
@@ -114,7 +151,14 @@ fun AppNavigation(
                 is NavRoute.Settings -> NavEntry(key) {
                     SettingsScreen(
                         onBack = { backStack.removeLastOrNull() },
-                        onDeviceClick = { deviceId -> backStack.add(NavRoute.AlertDetails(deviceId)) }
+                        onDeviceClick = { deviceId -> backStack.add(NavRoute.AlertDetails(deviceId)) },
+                        onHistoryClick = { backStack.add(NavRoute.History) }
+                    )
+                }
+
+                is NavRoute.History -> NavEntry(key) {
+                    HistoryScreen(
+                        onBack = { backStack.removeLastOrNull() }
                     )
                 }
 

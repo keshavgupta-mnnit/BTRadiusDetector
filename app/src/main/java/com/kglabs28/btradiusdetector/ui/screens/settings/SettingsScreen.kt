@@ -15,16 +15,27 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.foundation.layout.Column
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.kglabs28.btradiusdetector.ui.components.AboutSection
+import com.kglabs28.btradiusdetector.ui.components.RangeAlertsSection
 import com.kglabs28.btradiusdetector.ui.theme.BTRadiusDetectorTheme
+import com.kglabs28.btradiusdetector.utils.AppUtils
 import com.kglabs28.btradiusdetector.utils.Dimens
 import com.kglabs28.btradiusdetector.utils.Strings
 import com.kglabs28.btradiusdetector.utils.scaled
@@ -38,10 +49,25 @@ import com.kglabs28.btradiusdetector.utils.scaled
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
-    onDeviceClick: (String) -> Unit
+    onDeviceClick: (String) -> Unit,
+    onHistoryClick: () -> Unit
 ) {
     val viewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.factory())
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val activity = context as? android.app.Activity
+    // Re-check on every resume (e.g. back from the system whitelist screen).
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var resumeTick by remember { mutableStateOf(0) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) resumeTick++
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    val batteryUnrestricted = remember(resumeTick) { AppUtils.isBatteryOptimizationIgnored(context) }
+    val notificationsEnabled = remember(resumeTick) { AppUtils.areNotificationsEnabled(context) }
 
     LaunchedEffect(Unit) { viewModel.refresh() }
 
@@ -75,7 +101,18 @@ fun SettingsScreen(
                 onToggleAlert = viewModel::setAlertEnabled,
                 onDeviceClick = onDeviceClick
             )
-            AboutSection()
+            AboutSection(
+                batteryUnrestricted = batteryUnrestricted,
+                onBatteryClick = {
+                    activity?.let {
+                        if (batteryUnrestricted) AppUtils.openAppSettings(it)
+                        else AppUtils.requestIgnoreBatteryOptimizations(it)
+                    }
+                },
+                notificationsEnabled = notificationsEnabled,
+                onNotificationsClick = { activity?.let { AppUtils.openNotificationSettings(it) } },
+                onHistoryClick = onHistoryClick
+            )
         }
     }
 }
@@ -84,6 +121,6 @@ fun SettingsScreen(
 @Composable
 private fun SettingsScreenPreview() {
     BTRadiusDetectorTheme(darkTheme = true) {
-        SettingsScreen(onBack = {}, onDeviceClick = {})
+        SettingsScreen(onBack = {}, onDeviceClick = {}, onHistoryClick = {})
     }
 }

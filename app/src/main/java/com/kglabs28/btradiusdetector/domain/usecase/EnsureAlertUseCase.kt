@@ -1,9 +1,11 @@
 package com.kglabs28.btradiusdetector.domain.usecase
 
 import com.kglabs28.btradiusdetector.BTRadiusDetectorApp
+import com.kglabs28.btradiusdetector.data.AlertHistoryStore
 import com.kglabs28.btradiusdetector.data.AlertSettingsRepository
 import com.kglabs28.btradiusdetector.data.DisconnectIntentStore
 import com.kglabs28.btradiusdetector.data.local.AppDatabase
+import com.kglabs28.btradiusdetector.domain.model.AlertActivity
 import com.kglabs28.btradiusdetector.utils.BluetoothUtils
 import com.kglabs28.btradiusdetector.utils.Constants
 import com.kglabs28.btradiusdetector.utils.LogUtils
@@ -37,15 +39,15 @@ class EnsureAlertUseCase(
         }
         if (!settings.monitoringEnabled || !settings.notifyOnDisconnect) {
             LogUtils.d(TAG, "$name not registered for Disconnect Notification")
-            LogUtils.d(TAG, "Hence Avoiding Notification for $name")
+            LogUtils.d(TAG, "Hence Avoiding Notification for $name - not registered")
             return false
         }
         if (BluetoothUtils.isConnected(appContext, address)) {
-            LogUtils.d(TAG, "Hence Avoiding Notification for $name")
+            LogUtils.d(TAG, "Hence Avoiding Notification for $name - link alive")
             return false
         }
         if (!claimPostSlot("dis|$address")) {
-            LogUtils.d(TAG, "Hence Avoiding Notification for $name")
+            LogUtils.d(TAG, "Hence Avoiding Notification for $name - duplicate")
             return false
         }
         LogUtils.d(TAG, "$name registered for Disconnect Notification")
@@ -62,6 +64,7 @@ class EnsureAlertUseCase(
             )
         )
         intentStore.clear(address)
+        record(address, name, EVENT_DISCONNECTED, posted = true, reason = "")
         LogUtils.d(TAG, "Hence Triggering Notification for $name")
         return true
     }
@@ -74,11 +77,11 @@ class EnsureAlertUseCase(
         if (settings == null) return false
         if (!settings.monitoringEnabled || !settings.notifyOnReconnect) {
             LogUtils.d(TAG, "$name not registered for Connect Notification")
-            LogUtils.d(TAG, "Hence Avoiding Notification for $name")
+            LogUtils.d(TAG, "Hence Avoiding Notification for $name - not registered")
             return false
         }
         if (!claimPostSlot("con|$address")) {
-            LogUtils.d(TAG, "Hence Avoiding Notification for $name")
+            LogUtils.d(TAG, "Hence Avoiding Notification for $name - duplicate")
             return false
         }
         LogUtils.d(TAG, "$name registered for Connect Notification")
@@ -96,6 +99,7 @@ class EnsureAlertUseCase(
             )
         )
         LogUtils.d(TAG, "Hence Triggering Notification for $name")
+        record(address, name, EVENT_CONNECTED, posted = true, reason = "")
         return true
     }
 
@@ -117,6 +121,23 @@ class EnsureAlertUseCase(
             BluetoothUtils.getBondedDevices(appContext).find { it.address == address }?.name
         }.getOrNull() ?: address
 
+    private fun record(address: String, name: String, event: String, posted: Boolean, reason: String) {
+        val device = runCatching {
+            BluetoothUtils.getBondedDevices(appContext).find { it.address == address }
+        }.getOrNull()
+        AlertHistoryStore.getInstance(appContext).record(
+            AlertActivity(
+                address = address,
+                deviceName = name,
+                event = event,
+                posted = posted,
+                reason = reason,
+                majorClass = device?.deviceClass ?: 0,
+                minorClass = device?.minorDeviceClass ?: 0
+            )
+        )
+    }
+
     /**
      * One physical flap emits several broadcasts (ACL + A2DP + headset).
      * First claim inside the window posts; the rest are duplicates.
@@ -133,6 +154,9 @@ class EnsureAlertUseCase(
 
     companion object {
         private val TAG = LogUtils.tag("EnsureAlert")
+
+        const val EVENT_CONNECTED = "Connected"
+        const val EVENT_DISCONNECTED = "Disconnected"
 
         // Process-scoped by design: a fresh process has no recent posts.
         private val recentPosts = mutableMapOf<String, Long>()

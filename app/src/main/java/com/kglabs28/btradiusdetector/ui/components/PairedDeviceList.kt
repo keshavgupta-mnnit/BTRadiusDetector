@@ -1,4 +1,4 @@
-package com.kglabs28.btradiusdetector.ui.screens.home
+package com.kglabs28.btradiusdetector.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints

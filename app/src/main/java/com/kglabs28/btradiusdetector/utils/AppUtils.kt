@@ -74,6 +74,51 @@ object AppUtils {
         return ((clamped - Constants.RSSI_FLOOR) / range).coerceIn(0f, 1f)
     }
 
+    // ---- Battery optimization (Doze kills deferred alerts) ----
+
+    fun areNotificationsEnabled(context: Context): Boolean =
+        androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()
+
+    fun openNotificationSettings(activity: android.app.Activity) {
+        runCatching {
+            activity.startActivity(
+                android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                    putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, activity.packageName)
+                }
+            )
+        }
+    }
+
+    fun isBatteryOptimizationIgnored(context: Context): Boolean {
+        val powerManager = context.applicationContext.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+        return powerManager.isIgnoringBatteryOptimizations(context.packageName)
+    }
+
+    fun requestIgnoreBatteryOptimizations(activity: android.app.Activity) {
+        val prompt = android.content.Intent(
+            android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+            android.net.Uri.parse("package:${activity.packageName}")
+        )
+        // Some skins swallow the prompt silently — fall back to app settings
+        // so the tap always lands somewhere visible.
+        if (prompt.resolveActivity(activity.packageManager) != null) {
+            runCatching { activity.startActivity(prompt) }
+        } else {
+            openAppSettings(activity)
+        }
+    }
+
+    fun openAppSettings(activity: android.app.Activity) {
+        runCatching {
+            activity.startActivity(
+                android.content.Intent(
+                    android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    android.net.Uri.parse("package:${activity.packageName}")
+                )
+            )
+        }
+    }
+
     // ---- Time ----
 
     fun formatElapsedTime(fromMillis: Long, nowMillis: Long = System.currentTimeMillis()): String {

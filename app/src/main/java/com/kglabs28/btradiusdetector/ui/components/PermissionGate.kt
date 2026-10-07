@@ -11,10 +11,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Bluetooth
+import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -42,7 +44,11 @@ fun PermissionRationaleDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
 }
 
 @Composable
-fun PermissionRequestContent(onRequestPermissions: () -> Unit) {
+fun PermissionRequestContent(
+    onRequestPermissions: () -> Unit,
+    batteryUnrestricted: Boolean = true,
+    onBatteryClick: () -> Unit = {}
+) {
     Column(
         modifier = Modifier.fillMaxSize().padding(Dimens.spacingXl.scaled()),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -56,6 +62,53 @@ fun PermissionRequestContent(onRequestPermissions: () -> Unit) {
         Spacer(modifier = Modifier.height(Dimens.spacingXl.scaled()))
         Button(onClick = onRequestPermissions, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(Dimens.cornerRadiusButton.scaled())) {
             Text(Strings.grantPermissions)
+        }
+        if (!batteryUnrestricted) {
+            Spacer(modifier = Modifier.height(Dimens.spacingMd.scaled()))
+            Text(
+                Strings.backgroundAlertsNote,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(Dimens.spacingSm.scaled()))
+            OutlinedButton(
+                onClick = onBatteryClick,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(Dimens.cornerRadiusButton.scaled())
+            ) {
+                Text(Strings.allowBackgroundAlerts)
+            }
+        }
+    }
+}
+
+/**
+ * One-time whitelist gate shown after runtime permissions pass: without it
+ * Doze can delay alerts until the app opens.
+ */
+@Composable
+fun BatteryGateContent(
+    onAllow: () -> Unit,
+    onSkip: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(Dimens.spacingXl.scaled()),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(Icons.Rounded.NotificationsActive, contentDescription = null, modifier = Modifier.size(Dimens.iconSizeLarge.scaled()), tint = MaterialTheme.colorScheme.primary)
+        Spacer(modifier = Modifier.height(Dimens.spacingLg.scaled()))
+        Text(Strings.backgroundAlertsTitle, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
+        Spacer(modifier = Modifier.height(Dimens.spacingSm.scaled()))
+        Text(Strings.backgroundAlertsNote, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+        Spacer(modifier = Modifier.height(Dimens.spacingXl.scaled()))
+        Button(onClick = onAllow, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(Dimens.cornerRadiusButton.scaled())) {
+            Text(Strings.allowBackgroundAlerts)
+        }
+        Spacer(modifier = Modifier.height(Dimens.spacingSm.scaled()))
+        TextButton(onClick = onSkip) {
+            Text(Strings.notNow)
         }
     }
 }

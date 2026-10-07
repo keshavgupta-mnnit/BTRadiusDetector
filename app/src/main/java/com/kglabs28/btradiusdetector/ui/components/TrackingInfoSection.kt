@@ -1,4 +1,6 @@
-package com.kglabs28.btradiusdetector.ui.screens.tracking
+package com.kglabs28.btradiusdetector.ui.components
+
+import com.kglabs28.btradiusdetector.ui.screens.tracking.TrackingUiState
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer

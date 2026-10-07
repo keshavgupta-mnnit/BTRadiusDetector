@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kglabs28.btradiusdetector.ui.components.EmptyState
+import com.kglabs28.btradiusdetector.ui.components.PairedDeviceList
 import com.kglabs28.btradiusdetector.utils.Constants
 import com.kglabs28.btradiusdetector.utils.Dimens
 import com.kglabs28.btradiusdetector.utils.Strings

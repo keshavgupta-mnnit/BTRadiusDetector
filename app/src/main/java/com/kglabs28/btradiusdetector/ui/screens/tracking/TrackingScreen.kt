@@ -39,6 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kglabs28.btradiusdetector.ui.components.HowToFindDialog
 import com.kglabs28.btradiusdetector.ui.components.RadarTracker
+import com.kglabs28.btradiusdetector.ui.components.TrackingInfoSection
 import com.kglabs28.btradiusdetector.ui.theme.BTRadiusDetectorTheme
 import com.kglabs28.btradiusdetector.ui.theme.SonarGreen
 import com.kglabs28.btradiusdetector.utils.Dimens

@@ -33,6 +33,14 @@ import kotlinx.coroutines.launch
  */
 object BluetoothUtils {
 
+    private val TAG = LogUtils.tag("BleScan")
+
+    // Google Fast Pair service: buds able to show system battery cards
+    // advertise here. We log its raw bytes (debug only) to decode per-bud
+    // levels instead of guessing the vendor format.
+    private val FAST_PAIR_UUID =
+        java.util.UUID.fromString("0000fe2c-0000-1000-8000-00805f9a34fb")
+
     private fun bluetoothManager(context: Context): BluetoothManager =
         context.applicationContext.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
 
@@ -183,6 +191,16 @@ object BluetoothUtils {
         }.getOrDefault(false)
     }
 
+    // Debug only: dump the Fast Pair service bytes so per-bud battery formats
+    // can be decoded from a real device instead of guessed.
+    private fun logFastPairBytes(result: ScanResult) {
+        val record = result.scanRecord ?: return
+        val uuids = record.serviceUuids?.joinToString(",") { it.uuid.toString() } ?: "none"
+        val fastPair = record.getServiceData(android.os.ParcelUuid(FAST_PAIR_UUID))
+        val hex = fastPair?.joinToString("") { "%02X".format(it) } ?: "absent"
+        LogUtils.d(TAG, "adv rssi=${result.rssi} services=[$uuids] fastpair=$hex")
+    }
+
     /**
      * Merged RSSI stream from three sources, fastest-wins:
      *
@@ -226,6 +244,7 @@ object BluetoothUtils {
                 override fun onScanResult(callbackType: Int, result: ScanResult) {
                     if (result.device.address == targetDeviceAddress) {
                         emitRssi(result.rssi)
+                        logFastPairBytes(result)
                     }
                 }
 
