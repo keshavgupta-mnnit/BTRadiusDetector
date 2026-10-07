@@ -43,6 +43,18 @@ object NotificationUtils {
             enableVibration(true)
         }
 
+        val soundNoVib = NotificationChannel(
+            Constants.CHANNEL_ID_SOUND_NO_VIB,
+            context.getString(R.string.notification_channel_sound_novib_name),
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            setSound(
+                android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION),
+                null
+            )
+            enableVibration(false)
+        }
+
         val vibrate = NotificationChannel(
             Constants.CHANNEL_ID_VIBRATE,
             context.getString(R.string.notification_channel_vibrate_name),
@@ -52,7 +64,7 @@ object NotificationUtils {
             enableVibration(true)
         }
 
-        manager.createNotificationChannels(listOf(silent, sound, vibrate))
+        manager.createNotificationChannels(listOf(silent, sound, soundNoVib, vibrate))
     }
 
     /**
@@ -87,7 +99,8 @@ object NotificationUtils {
 
     /** Channel routing shared by builders and log lines (must never drift). */
     fun channelForAlert(useSound: Boolean, useVibration: Boolean): String = when {
-        useSound -> Constants.CHANNEL_ID_SOUND
+        useSound && useVibration -> Constants.CHANNEL_ID_SOUND
+        useSound -> Constants.CHANNEL_ID_SOUND_NO_VIB
         useVibration -> Constants.CHANNEL_ID_VIBRATE
         else -> Constants.CHANNEL_ID_SILENT
     }

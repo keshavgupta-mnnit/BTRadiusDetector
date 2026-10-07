@@ -4,7 +4,7 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.kglabs28.btradiusdetector.utils.Constants
 
-import com.kglabs28.btradiusdetector.domain.model.AlertSoundMode
+import com.kglabs28.btradiusdetector.domain.model.AlertRepeatMode
 
 @Entity(tableName = "alert_settings")
 data class AlertSettingsEntity(
@@ -12,8 +12,9 @@ data class AlertSettingsEntity(
     val monitoringEnabled: Boolean = true,
     val notifyOnDisconnect: Boolean = true,
     val notifyOnReconnect: Boolean = true,
-    val soundMode: String = AlertSoundMode.ONCE.name,
+    val soundEnabled: Boolean = true,
     val vibrationEnabled: Boolean = true,
+    val alertRepeat: String = AlertRepeatMode.ONCE.name,
     val keepNotifyingOnDisconnect: Boolean = false,
     val lastBestRssi: Int = Constants.RSSI_FLOOR,
     val lastBestHeading: Float = 0f

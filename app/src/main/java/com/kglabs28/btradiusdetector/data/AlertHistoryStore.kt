@@ -2,6 +2,7 @@ package com.kglabs28.btradiusdetector.data
 
 import android.content.Context
 import com.kglabs28.btradiusdetector.domain.model.AlertActivity
+import com.kglabs28.btradiusdetector.utils.Constants
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,7 +25,12 @@ class AlertHistoryStore private constructor(context: Context) {
 
     @Synchronized
     fun record(entry: AlertActivity) {
-        val updated = (listOf(entry) + _history.value).take(MAX_SIZE)
+        // Newest first, capped per device so one chatty bud can't evict
+        // everyone else, plus a global safety cap.
+        val perDevice = (listOf(entry) + _history.value)
+            .groupBy { it.address }
+            .flatMap { (_, entries) -> entries.take(Constants.HISTORY_PER_DEVICE) }
+        val updated = perDevice.sortedByDescending { it.atMillis }.take(Constants.HISTORY_MAX_TOTAL)
         _history.value = updated
         runCatching {
             val array = JSONArray()
@@ -38,7 +44,7 @@ class AlertHistoryStore private constructor(context: Context) {
         return runCatching {
             val array = JSONArray(raw)
             List(array.length()) { i -> decode(array.getJSONObject(i)) }
-        }.getOrDefault(emptyList()).take(MAX_SIZE)
+        }.getOrDefault(emptyList()).take(Constants.HISTORY_MAX_TOTAL)
     }
 
     private fun encode(entry: AlertActivity): JSONObject = JSONObject()
@@ -65,7 +71,6 @@ class AlertHistoryStore private constructor(context: Context) {
     companion object {
         private const val PREFS_NAME = "alert_history"
         private const val KEY_HISTORY = "history_v1"
-        private const val MAX_SIZE = 50
 
         @Volatile
         private var instance: AlertHistoryStore? = null

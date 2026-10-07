@@ -37,7 +37,8 @@ import com.kglabs28.btradiusdetector.utils.Strings
 @Composable
 fun HomeScreen(
     onDeviceSelected: (String) -> Unit,
-    onSettingsClick: () -> Unit
+    onSettingsClick: () -> Unit,
+    onRangeAlertsClick: () -> Unit
 ) {
     val viewModel: HomeViewModel = viewModel(factory = HomeViewModel.factory())
 
@@ -89,7 +90,7 @@ fun HomeScreen(
                 PairedDeviceList(
                     devices = state.devices,
                     onDeviceSelected = onDeviceSelected,
-                    onMonitorClick = onSettingsClick
+                    onMonitorClick = onRangeAlertsClick
                 )
             }
         }

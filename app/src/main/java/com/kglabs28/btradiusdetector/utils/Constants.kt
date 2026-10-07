@@ -9,6 +9,7 @@ object Constants {
     // Notification channels
     const val CHANNEL_ID_SILENT = "range_alerts_silent"
     const val CHANNEL_ID_SOUND = "range_alerts_sound"
+    const val CHANNEL_ID_SOUND_NO_VIB = "range_alerts_sound_novib"
     const val CHANNEL_ID_VIBRATE = "range_alerts_vibrate"
 
     // Notification IDs
@@ -50,6 +51,10 @@ object Constants {
 
     // Pending disconnect flags older than this never alert (stale drop).
     const val PENDING_ALERT_STALE_MS = 30 * 60 * 1_000L
+
+    // Notification history caps (no magic numbers in the store).
+    const val HISTORY_PER_DEVICE = 10
+    const val HISTORY_MAX_TOTAL = 200
 
     // Same-device same-event posts inside this window are one physical
     // flap (ACL + A2DP + headset broadcasts for a single connect) — post once.

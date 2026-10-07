@@ -6,7 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.kglabs28.btradiusdetector.BTRadiusDetectorApp
 import com.kglabs28.btradiusdetector.data.AlertSettingsRepository
 import com.kglabs28.btradiusdetector.data.local.AppDatabase
-import com.kglabs28.btradiusdetector.domain.model.AlertSoundMode
+import com.kglabs28.btradiusdetector.domain.model.AlertRepeatMode
 import com.kglabs28.btradiusdetector.domain.usecase.ObserveAlertSettingsUseCase
 import com.kglabs28.btradiusdetector.domain.usecase.UpdateAlertSettingUseCase
 import com.kglabs28.btradiusdetector.utils.BluetoothUtils
@@ -27,8 +27,9 @@ data class AlertDetailsUiState(
     val monitoringEnabled: Boolean = false,
     val notifyOnDisconnect: Boolean = false,
     val notifyOnReconnect: Boolean = false,
-    val soundMode: AlertSoundMode = AlertSoundMode.ONCE,
-    val vibrationEnabled: Boolean = true
+    val soundEnabled: Boolean = false,
+    val vibrationEnabled: Boolean = true,
+    val repeatMode: AlertRepeatMode = AlertRepeatMode.ONCE
 )
 
 /** Every user intent on this screen funnels through one handler. */
@@ -36,8 +37,9 @@ sealed interface AlertDetailsEvent {
     data class MonitoringToggled(val enabled: Boolean) : AlertDetailsEvent
     data class NotifyDisconnectToggled(val enabled: Boolean) : AlertDetailsEvent
     data class NotifyReconnectToggled(val enabled: Boolean) : AlertDetailsEvent
-    data class SoundModeSelected(val mode: AlertSoundMode) : AlertDetailsEvent
+    data class SoundToggled(val enabled: Boolean) : AlertDetailsEvent
     data class VibrationToggled(val enabled: Boolean) : AlertDetailsEvent
+    data class RepeatModeSelected(val mode: AlertRepeatMode) : AlertDetailsEvent
 }
 
 /**
@@ -64,8 +66,9 @@ class DeviceAlertDetailsViewModel(
             monitoringEnabled = row?.monitoringEnabled ?: false,
             notifyOnDisconnect = row?.notifyOnDisconnect ?: false,
             notifyOnReconnect = row?.notifyOnReconnect ?: false,
-            soundMode = AlertSoundMode.fromName(row?.soundMode),
-            vibrationEnabled = row?.vibrationEnabled ?: false
+            soundEnabled = row?.soundEnabled ?: false,
+            vibrationEnabled = row?.vibrationEnabled ?: false,
+            repeatMode = AlertRepeatMode.fromName(row?.alertRepeat)
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AlertDetailsUiState())
 
@@ -78,10 +81,12 @@ class DeviceAlertDetailsViewModel(
                     updateAlerts.setNotifyOnDisconnect(address, event.enabled)
                 is AlertDetailsEvent.NotifyReconnectToggled ->
                     updateAlerts.setNotifyOnReconnect(address, event.enabled)
-                is AlertDetailsEvent.SoundModeSelected ->
-                    updateAlerts.setSoundMode(address, event.mode)
+                is AlertDetailsEvent.SoundToggled ->
+                    updateAlerts.setSound(address, event.enabled)
                 is AlertDetailsEvent.VibrationToggled ->
                     updateAlerts.setVibration(address, event.enabled)
+                is AlertDetailsEvent.RepeatModeSelected ->
+                    updateAlerts.setRepeatMode(address, event.mode)
             }
         }
     }

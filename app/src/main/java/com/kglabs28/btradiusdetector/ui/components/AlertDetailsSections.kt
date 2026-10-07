@@ -1,6 +1,8 @@
 package com.kglabs28.btradiusdetector.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,10 +14,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.automirrored.rounded.VolumeOff
+import androidx.compose.material.icons.automirrored.rounded.VolumeUp
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -26,10 +35,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import com.kglabs28.btradiusdetector.domain.model.AlertSoundMode
+import com.kglabs28.btradiusdetector.domain.model.AlertRepeatMode
 import com.kglabs28.btradiusdetector.ui.screens.alertdetails.AlertDetailsEvent
 import com.kglabs28.btradiusdetector.ui.screens.alertdetails.AlertDetailsUiState
 import com.kglabs28.btradiusdetector.ui.theme.ContentWhite
@@ -99,7 +110,7 @@ fun DeviceHeaderCard(
     }
 }
 
-/** The four per-device notification toggles. */
+/** The per-device notification toggles plus the repetition dropdown. */
 @Composable
 fun AlertTogglesCard(
     state: AlertDetailsUiState,
@@ -117,9 +128,10 @@ fun AlertTogglesCard(
             checked = state.notifyOnReconnect,
             onCheckedChange = { onEvent(AlertDetailsEvent.NotifyReconnectToggled(it)) }
         )
-        SoundModeRow(
-            mode = state.soundMode,
-            onModeSelected = { onEvent(AlertDetailsEvent.SoundModeSelected(it)) }
+        SwitchSettingRow(
+            title = Strings.notificationSoundTitle,
+            checked = state.soundEnabled,
+            onCheckedChange = { onEvent(AlertDetailsEvent.SoundToggled(it)) }
         )
         SwitchSettingRow(
             title = Strings.vibrationTitle,
@@ -128,81 +140,141 @@ fun AlertTogglesCard(
             showDivider = false
         )
     }
+
+    Spacer(modifier = Modifier.height(Dimens.spacingMd.scaled()))
+
+    // Repetition is meaningless for a channels-off visual ping.
+    val channelsOff = !state.soundEnabled && !state.vibrationEnabled
+    AlertRepeatDropdown(
+        mode = state.repeatMode,
+        enabled = !channelsOff,
+        onModeSelected = { onEvent(AlertDetailsEvent.RepeatModeSelected(it)) }
+    )
 }
 
-/** Notification sound as Off / One time / Continuous picker dialog. */
+/** Alert repetition as an inline dropdown: Once / Beep. */
 @Composable
-fun SoundModeRow(
-    mode: AlertSoundMode,
-    onModeSelected: (AlertSoundMode) -> Unit,
+fun AlertRepeatDropdown(
+    mode: AlertRepeatMode,
+    enabled: Boolean,
+    onModeSelected: (AlertRepeatMode) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var showDialog by remember { mutableStateOf(false) }
+    var expanded by remember { mutableStateOf(false) }
 
-    fun label(m: AlertSoundMode): String = when (m) {
-        AlertSoundMode.OFF -> Strings.soundModeOff
-        AlertSoundMode.ONCE -> Strings.soundModeOnce
-        AlertSoundMode.CONTINUOUS -> Strings.soundModeContinuous
+    fun label(m: AlertRepeatMode): String = when (m) {
+        AlertRepeatMode.ONCE -> Strings.repeatOnce
+        AlertRepeatMode.CONTINUOUS -> Strings.repeatContinuous
     }
 
-    Column(modifier = modifier) {
-        Row(
-            modifier = Modifier.fillMaxWidth().clickable(onClick = { showDialog = true })
-                .padding(horizontal = Dimens.cardPaddingH.scaled(), vertical = Dimens.cardPaddingV.scaled()),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                Strings.notificationSoundTitle, fontSize = Dimens.textLabel,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.weight(1f)
-            )
-            Text(
-                label(mode), fontSize = Dimens.textCaption,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = Dimens.alphaSubtleText)
-            )
-            Spacer(modifier = Modifier.width(Dimens.spacingSm.scaled()))
-            Icon(
-                Icons.Rounded.ChevronRight, contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = Dimens.alphaSubtleText),
-                modifier = Modifier.size(Dimens.iconChevronSize.scaled())
-            )
-        }
-        Box(
-            modifier = Modifier.fillMaxWidth()
-                .padding(start = Dimens.cardPaddingH.scaled())
-                .height(Dimens.dividerH.scaled())
-                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = Dimens.alphaDivider))
+    fun icon(m: AlertRepeatMode): ImageVector = when (m) {
+        AlertRepeatMode.ONCE -> Icons.AutoMirrored.Rounded.VolumeUp
+        AlertRepeatMode.CONTINUOUS -> Icons.Rounded.NotificationsActive
+    }
+
+    val contentAlpha = if (enabled) 1f else Dimens.alphaDisabledContent
+
+    Column(modifier = modifier.alpha(contentAlpha)) {
+        Text(
+            Strings.alertTypeTitle,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = Dimens.textSectionSmall,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = contentAlpha),
+            modifier = Modifier.padding(bottom = Dimens.spacingSm.scaled())
         )
-    }
+        Surface(
+            modifier = Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = { expanded = !expanded }),
+            shape = RoundedCornerShape(Dimens.cornerRadiusPill.scaled()),
+            color = Color.Transparent,
+            border = BorderStroke(
+                Dimens.borderWidthThin.scaled(),
+                MaterialTheme.colorScheme.primary.copy(alpha = Dimens.alphaBorderSubtle)
+            )
+        ) {
+            Row(
+                modifier = Modifier.padding(
+                    horizontal = Dimens.cardPaddingH.scaled(),
+                    vertical = Dimens.spacingSm.scaled()
+                ).fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = icon(mode),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = Dimens.alphaSubtleText),
+                    modifier = Modifier.size(Dimens.iconSizeRow.scaled())
+                )
+                Spacer(modifier = Modifier.width(Dimens.spacingMd.scaled()))
+                Text(
+                    text = label(mode),
+                    fontSize = Dimens.textBody,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
+                )
+                Icon(
+                    imageVector = if (expanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(Dimens.iconSizeRow.scaled())
+                )
+            }
+        }
 
-    if (showDialog) {
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { showDialog = false },
-            title = { Text(Strings.notificationSoundTitle) },
-            text = {
-                Column {
-                    AlertSoundMode.values().forEach { option ->
+        if (expanded) {
+            Spacer(modifier = Modifier.height(Dimens.spacingSm.scaled()))
+            AppCard(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(vertical = Dimens.spacingSm.scaled())) {
+                    AlertRepeatMode.values().forEach { option ->
+                        val selected = option == mode
+                        val accent = if (selected) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = Dimens.alphaSubtleText)
                         Row(
                             modifier = Modifier.fillMaxWidth().clickable {
                                 onModeSelected(option)
-                                showDialog = false
-                            }.padding(vertical = Dimens.spacingSm.scaled()),
+                                expanded = false
+                            }.padding(
+                                horizontal = Dimens.cardPaddingH.scaled(),
+                                vertical = Dimens.spacingSm.scaled()
+                            ),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            androidx.compose.material3.RadioButton(
-                                selected = option == mode,
-                                onClick = {
-                                    onModeSelected(option)
-                                    showDialog = false
-                                }
+                            Box(
+                                modifier = Modifier.size(Dimens.iconCircleSizeSmall.scaled()).clip(CircleShape)
+                                    .border(
+                                        Dimens.borderWidthThin.scaled(),
+                                        accent,
+                                        CircleShape
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = icon(option),
+                                    contentDescription = null,
+                                    tint = accent,
+                                    modifier = Modifier.size(Dimens.iconSizeSmall.scaled())
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(Dimens.spacingMd.scaled()))
+                            Text(
+                                text = label(option),
+                                fontSize = Dimens.textBody,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (selected) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f)
                             )
-                            Spacer(modifier = Modifier.width(Dimens.spacingSm.scaled()))
-                            Text(label(option), fontSize = Dimens.textLabel)
+                            if (selected) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Check,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(Dimens.iconSizeRow.scaled())
+                                )
+                            }
                         }
                     }
                 }
-            },
-            confirmButton = { }
-        )
+            }
+        }
     }
 }

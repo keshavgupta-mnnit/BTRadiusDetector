@@ -36,6 +36,7 @@ import com.kglabs28.btradiusdetector.ui.screens.settings.SettingsScreen
 import com.kglabs28.btradiusdetector.ui.screens.tracking.TrackingScreen
 import com.kglabs28.btradiusdetector.ui.screens.home.HomeScreen
 import com.kglabs28.btradiusdetector.ui.screens.nearby.NearbyScreen
+import com.kglabs28.btradiusdetector.ui.screens.rangealerts.RangeAlertsScreen
 import com.kglabs28.btradiusdetector.utils.AppUtils
 
 /**
@@ -145,7 +146,8 @@ fun AppNavigation(
                 is NavRoute.Scan -> NavEntry(key) {
                     HomeScreen(
                         onDeviceSelected = { deviceId -> backStack.add(NavRoute.Details(deviceId)) },
-                        onSettingsClick = { backStack.add(NavRoute.Settings) }
+                        onSettingsClick = { backStack.add(NavRoute.Settings) },
+                        onRangeAlertsClick = { backStack.add(NavRoute.RangeAlerts) }
                     )
                 }
 
@@ -159,8 +161,15 @@ fun AppNavigation(
                 is NavRoute.Settings -> NavEntry(key) {
                     SettingsScreen(
                         onBack = { backStack.removeLastOrNull() },
-                        onDeviceClick = { deviceId -> backStack.add(NavRoute.AlertDetails(deviceId)) },
+                        onRangeAlertsClick = { backStack.add(NavRoute.RangeAlerts) },
                         onHistoryClick = { backStack.add(NavRoute.History) }
+                    )
+                }
+
+                is NavRoute.RangeAlerts -> NavEntry(key) {
+                    RangeAlertsScreen(
+                        onBack = { backStack.removeLastOrNull() },
+                        onDeviceClick = { deviceId -> backStack.add(NavRoute.AlertDetails(deviceId)) }
                     )
                 }
 

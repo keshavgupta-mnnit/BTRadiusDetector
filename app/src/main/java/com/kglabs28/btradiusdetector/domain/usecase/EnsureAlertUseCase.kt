@@ -6,7 +6,7 @@ import com.kglabs28.btradiusdetector.data.AlertSettingsRepository
 import com.kglabs28.btradiusdetector.data.DisconnectIntentStore
 import com.kglabs28.btradiusdetector.data.local.AppDatabase
 import com.kglabs28.btradiusdetector.domain.model.AlertActivity
-import com.kglabs28.btradiusdetector.domain.model.AlertSoundMode
+import com.kglabs28.btradiusdetector.domain.model.AlertRepeatMode
 import com.kglabs28.btradiusdetector.service.BeepService
 import com.kglabs28.btradiusdetector.utils.BluetoothUtils
 import com.kglabs28.btradiusdetector.utils.Constants
@@ -53,19 +53,22 @@ class EnsureAlertUseCase(
             return false
         }
         LogUtils.d(TAG, "$name registered for Disconnect Notification")
-        val mode = AlertSoundMode.fromName(settings.soundMode)
-        if (mode == AlertSoundMode.CONTINUOUS) {
+        val repeat = AlertRepeatMode.fromName(settings.alertRepeat)
+        if (repeat == AlertRepeatMode.CONTINUOUS) {
             // Beep loop carries sight and sound until the user interacts;
             // its own notification has the Stop action.
             if (BeepService.start(appContext, address, name, settings.vibrationEnabled)) {
                 intentStore.clear(address)
                 record(address, name, EVENT_DISCONNECTED, posted = true, reason = "")
-                LogUtils.d(TAG, "Hence Triggering Notification for $name [mode=$mode]")
+                LogUtils.d(TAG, "Hence Triggering Notification for $name " +
+                    "[sound=${settings.soundEnabled}, vibration=${settings.vibrationEnabled}, repeat=$repeat]")
                 return true
             }
             // Service refused (background start denial) — degrade to one beep.
         }
-        val useSound = mode == AlertSoundMode.ONCE
+        // Single notification: channels follow the two toggles exactly —
+        // sound-only never vibrates, vibration-only never sounds.
+        val useSound = settings.soundEnabled
         NotificationUtils.notifySafely(
             appContext,
             NotificationUtils.disconnectNotificationId(address),
@@ -81,7 +84,7 @@ class EnsureAlertUseCase(
         intentStore.clear(address)
         record(address, name, EVENT_DISCONNECTED, posted = true, reason = "")
         LogUtils.d(TAG, "Hence Triggering Notification for $name " +
-            "[mode=$mode, vibration=${settings.vibrationEnabled}, " +
+            "[sound=$useSound, vibration=${settings.vibrationEnabled}, repeat=$repeat, " +
             "channel=${NotificationUtils.channelForAlert(useSound, settings.vibrationEnabled)}]")
         return true
     }
@@ -102,8 +105,8 @@ class EnsureAlertUseCase(
             return false
         }
         LogUtils.d(TAG, "$name registered for Connect Notification")
-        // Reconnects are momentary: sound follows the mode unless fully off.
-        val reconnectSound = AlertSoundMode.fromName(settings.soundMode) != AlertSoundMode.OFF
+        // Reconnects are momentary: sound follows its own toggle.
+        val reconnectSound = settings.soundEnabled
         val battery = BluetoothUtils.getLastKnownBattery(appContext, address)
         NotificationUtils.notifySafely(
             appContext,

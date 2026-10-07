@@ -1,4 +1,4 @@
-package com.kglabs28.btradiusdetector.ui.screens.settings
+package com.kglabs28.btradiusdetector.ui.screens.rangealerts
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -17,8 +17,8 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-/** Everything the settings screen renders, observed as one flow. */
-data class SettingsUiState(
+/** Everything the range alerts screen renders, observed as one flow. */
+data class RangeAlertsUiState(
     val devices: List<BluetoothDeviceModel> = emptyList(),
     val alertEnabled: Map<String, Boolean> = emptyMap()
 )
@@ -27,7 +27,7 @@ data class SettingsUiState(
  * Thin wiring only: combines the bonded-device stream with stored flags into
  * [uiState]. Bluetooth reads go straight to [BluetoothUtils].
  */
-class SettingsViewModel(
+class RangeAlertsViewModel(
     private val settingsRepository: AlertSettingsRepository
 ) : ViewModel() {
 
@@ -44,9 +44,9 @@ class SettingsViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     /** Single state for the screen: devices + effective master flags. */
-    val uiState: StateFlow<SettingsUiState> =
+    val uiState: StateFlow<RangeAlertsUiState> =
         combine(bondedDevices, storedSettings) { devices, rows ->
-            SettingsUiState(
+            RangeAlertsUiState(
                 devices = devices,
                 // Strict opt-in: no stored row means the device was never
                 // registered — toggling it on creates an all-true row.
@@ -54,7 +54,7 @@ class SettingsViewModel(
                     device.address to (rows.find { it.address == device.address }?.monitoringEnabled ?: false)
                 }
             )
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SettingsUiState())
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), RangeAlertsUiState())
 
     fun refresh() {
         refreshTrigger.value += 1
@@ -71,7 +71,7 @@ class SettingsViewModel(
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 val app = BTRadiusDetectorApp.appContext
-                return SettingsViewModel(
+                return RangeAlertsViewModel(
                     AlertSettingsRepository(AppDatabase.getInstance(app).alertSettingsDao())
                 ) as T
             }

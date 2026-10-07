@@ -14,6 +14,9 @@ sealed interface NavRoute : NavKey {
     data object Settings : NavRoute
 
     @Serializable
+    data object RangeAlerts : NavRoute
+
+    @Serializable
     data object History : NavRoute
 
     @Serializable

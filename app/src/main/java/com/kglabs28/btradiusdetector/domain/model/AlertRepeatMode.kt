@@ -1,13 +1,12 @@
 package com.kglabs28.btradiusdetector.domain.model
 
-/** How a disconnect alert should sound. Stored by name in the flags table. */
-enum class AlertSoundMode {
-    OFF,
+/** Alert repetition. Stored by name in the flags table. */
+enum class AlertRepeatMode {
     ONCE,
     CONTINUOUS;
 
     companion object {
-        fun fromName(name: String?): AlertSoundMode =
+        fun fromName(name: String?): AlertRepeatMode =
             values().firstOrNull { it.name == name } ?: ONCE
     }
 }
