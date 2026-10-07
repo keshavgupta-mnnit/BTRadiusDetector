@@ -16,6 +16,7 @@ object Constants {
     const val NOTIF_ID_DISCONNECT_BASE = 1000
     const val NOTIF_ID_RECONNECT_BASE = 2000
     const val NOTIF_ID_STICKY = 3000
+    const val NOTIF_ID_MONITORING = 4000
 
     // Behavior tuning
     const val DISCONNECT_DEBOUNCE_MS = 5_000L
@@ -45,6 +46,9 @@ object Constants {
     const val GATT_RETRY_MS = 5_000L
     const val STALE_CHECK_MS = 5_000L
     const val STALE_TIMEOUT_MS = 10_000L
+
+    // Pending disconnect flags older than this never alert (stale drop).
+    const val PENDING_ALERT_STALE_MS = 30 * 60 * 1_000L
 
     // Background glow (no magic numbers in composables)
     const val RADIAL_GLOW_RADIUS = 1000f

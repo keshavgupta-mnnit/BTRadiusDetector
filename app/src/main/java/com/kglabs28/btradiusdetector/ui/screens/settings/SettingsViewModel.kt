@@ -49,9 +49,10 @@ class SettingsViewModel(
         combine(bondedDevices, storedSettings) { devices, rows ->
             SettingsUiState(
                 devices = devices,
+                // Strict opt-in: no stored row means the device was never
+                // registered — toggling it on creates an all-true row.
                 alertEnabled = devices.associate { device ->
-                    device.address to (rows.find { it.address == device.address }?.monitoringEnabled
-                        ?: device.isConnected)
+                    device.address to (rows.find { it.address == device.address }?.monitoringEnabled ?: false)
                 }
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SettingsUiState())

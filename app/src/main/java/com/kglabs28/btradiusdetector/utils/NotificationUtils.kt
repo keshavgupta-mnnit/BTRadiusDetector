@@ -1,6 +1,7 @@
 package com.kglabs28.btradiusdetector.utils
 
 import android.Manifest
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -15,15 +16,16 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.kglabs28.btradiusdetector.MainActivity
 import com.kglabs28.btradiusdetector.R
+import com.kglabs28.btradiusdetector.data.BleRssiRepository
+import com.kglabs28.btradiusdetector.data.local.AlertSettingsEntity
 import com.kglabs28.btradiusdetector.ui.theme.NotificationAccentDisconnect
 import com.kglabs28.btradiusdetector.ui.theme.NotificationAccentReconnect
-import com.kglabs28.btradiusdetector.utils.AppUtils
 
 object NotificationUtils {
 
     fun createNotificationChannels(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val manager = context.getSystemService(NotificationManager::class.java)
+        val manager = context.getSystemService(NotificationManager::class.java) ?: return
 
         val silent = NotificationChannel(
             Constants.CHANNEL_ID_SILENT,
@@ -63,46 +65,39 @@ object NotificationUtils {
     }
 
     /**
-     * Shared base matching the app's notification design: bold title, body,
-     * timestamp, accent-tinted icon, tap opens the device's tracking screen.
+     * Shared base matching the app's notification design:
+     * - Custom collapsed + expanded views: accent rounded icon, bold title, body.
+     * - Stock title/body/intent/timestamp stay set so watches and stripped
+     *   views still render something sane.
+     * - Accent color: Red for disconnect, Mint Green for reconnect & monitoring.
+     * - Tap action: opens the device tracking screen.
      */
     private fun baseAlertBuilder(
         context: Context,
-        deviceAddress: String,
+        deviceAddress: String?,
         channelId: String,
         title: String,
         body: String,
-        accent: Color
+        accent: Color,
+        isDisconnect: Boolean
     ): NotificationCompat.Builder {
-        return NotificationCompat.Builder(context, channelId)
-            .setSmallIcon(R.drawable.ic_notification)
+        val builder = NotificationCompat.Builder(context, channelId)
+            .setSmallIcon(R.drawable.ic_notification_bt)
             .setContentTitle(title)
-            .setContentText(body)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setContentIntent(trackingPendingIntent(context, deviceAddress))
             .setWhen(System.currentTimeMillis())
             .setShowWhen(true)
             .setColor(accent.toArgb())
-            .setLargeIcon(appIconBitmap(context))
+
+        if (body.isNotBlank()) {
+            builder.setContentText(body)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+        }
+
+        return builder
     }
 
-    private fun appIconBitmap(context: Context): android.graphics.Bitmap? {
-        return runCatching {
-            val drawable: android.graphics.drawable.Drawable =
-                ContextCompat.getDrawable(context, R.drawable.ic_notification)
-                    ?: return@runCatching null
-            val width = drawable.intrinsicWidth.coerceAtLeast(1)
-            val height = drawable.intrinsicHeight.coerceAtLeast(1)
-            val bitmap = android.graphics.Bitmap.createBitmap(
-                width, height, android.graphics.Bitmap.Config.ARGB_8888
-            )
-            drawable.setBounds(0, 0, width, height)
-            drawable.draw(android.graphics.Canvas(bitmap))
-            bitmap
-        }.getOrNull()
-    }
-
-    /** Red disconnect alert: "Lost connection to X / Device may be out of range." */
+    /** Red disconnect alert: "Lost connection to X" / "Device may be out of range." */
     fun buildDisconnectNotification(
         context: Context,
         deviceAddress: String,
@@ -110,13 +105,13 @@ object NotificationUtils {
         body: String,
         useSound: Boolean,
         useVibration: Boolean
-    ): android.app.Notification {
+    ): Notification {
         val channelId = when {
             useSound -> Constants.CHANNEL_ID_SOUND
             useVibration -> Constants.CHANNEL_ID_VIBRATE
             else -> Constants.CHANNEL_ID_SILENT
         }
-        return baseAlertBuilder(context, deviceAddress, channelId, title, body, NotificationAccentDisconnect)
+        return baseAlertBuilder(context, deviceAddress, channelId, title, body, NotificationAccentDisconnect, isDisconnect = true)
             .setAutoCancel(true)
             .setPriority(if (useSound || useVibration) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_LOW)
             .build()
@@ -130,46 +125,91 @@ object NotificationUtils {
         body: String,
         useSound: Boolean,
         useVibration: Boolean
-    ): android.app.Notification {
+    ): Notification {
         val channelId = when {
             useSound -> Constants.CHANNEL_ID_SOUND
             useVibration -> Constants.CHANNEL_ID_VIBRATE
             else -> Constants.CHANNEL_ID_SILENT
         }
-        return baseAlertBuilder(context, deviceAddress, channelId, title, body, NotificationAccentReconnect)
+        return baseAlertBuilder(context, deviceAddress, channelId, title, body, NotificationAccentReconnect, isDisconnect = false)
             .setAutoCancel(true)
             .setPriority(if (useSound || useVibration) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_LOW)
             .build()
     }
 
-    fun trackingPendingIntent(context: Context, deviceAddress: String): PendingIntent {
+    /** Ongoing persistent monitoring / disconnect alert */
+    fun buildStickyAlertNotification(
+        context: Context,
+        deviceAddress: String,
+        title: String,
+        body: String
+    ): Notification {
+        return baseAlertBuilder(
+            context,
+            deviceAddress,
+            Constants.CHANNEL_ID_STICKY,
+            title,
+            body,
+            NotificationAccentDisconnect,
+            isDisconnect = true
+        )
+            .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .build()
+    }
+
+    fun trackingPendingIntent(context: Context, deviceAddress: String?): PendingIntent {
         val intent = Intent(context, MainActivity::class.java).apply {
             action = MainActivity.ACTION_TRACK_DEVICE
-            putExtra(MainActivity.EXTRA_DEVICE_ADDRESS, deviceAddress)
+            if (deviceAddress != null) putExtra(MainActivity.EXTRA_DEVICE_ADDRESS, deviceAddress)
         }
         return PendingIntent.getActivity(
             context,
-            deviceAddress.hashCode(),
+            deviceAddress?.hashCode() ?: 0,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
     }
 
-    /** Stable ID so immediate posts, worker re-posts and retractions hit one row. */
+    /**
+     * Ongoing "Monitoring" notification (green, persistent): shows the live
+     * monitored device with battery, or the idle state. Tapping opens that
+     * device's tracking screen, or the app home when nothing is live.
+     */
+    fun buildMonitoringNotification(
+        context: Context,
+        deviceAddress: String?,
+        title: String,
+        body: String
+    ): android.app.Notification {
+        return baseAlertBuilder(
+            context,
+            deviceAddress,
+            Constants.CHANNEL_ID_STICKY,
+            title,
+            body,
+            NotificationAccentReconnect,
+            isDisconnect = false
+        )
+            .setOngoing(true)
+            .setAutoCancel(false)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .build()
+    }
+
     fun disconnectNotificationId(address: String): Int =
         Constants.NOTIF_ID_DISCONNECT_BASE + address.hashCode()
+
+    fun reconnectNotificationId(address: String): Int =
+        Constants.NOTIF_ID_RECONNECT_BASE + address.hashCode()
 
     fun cancelSafely(context: Context, notificationId: Int) {
         runCatching { NotificationManagerCompat.from(context).cancel(notificationId) }
     }
 
-    /**
-     * Disconnect body shared by the immediate post and the verifier pass:
-     * base hint + battery when known + last best bearing when recorded.
-     */
     fun disconnectBody(
-        repo: com.kglabs28.btradiusdetector.data.BleRssiRepository,
-        settings: com.kglabs28.btradiusdetector.data.local.AlertSettingsEntity,
+        repo: BleRssiRepository,
+        settings: AlertSettingsEntity,
         address: String
     ): String {
         var body = repo.getLastKnownBattery(address)?.let { Strings.disconnectBodyWithBattery(it) }
@@ -183,42 +223,7 @@ object NotificationUtils {
         return body
     }
 
-    fun buildOneTimeAlertNotification(
-        context: Context,
-        title: String,
-        body: String,
-        useSound: Boolean
-    ): android.app.Notification {
-        val channelId = if (useSound) Constants.CHANNEL_ID_SOUND else Constants.CHANNEL_ID_SILENT
-        return NotificationCompat.Builder(context, channelId)
-            .setSmallIcon(R.drawable.ic_notification) // ensure this drawable exists; placeholder if not
-            .setContentTitle(title)
-            .setContentText(body)
-            .setAutoCancel(true)
-            .setPriority(if (useSound) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_LOW)
-            .build()
-    }
-
-    fun buildStickyAlertNotification(
-        context: Context,
-        deviceAddress: String,
-        title: String,
-        body: String
-    ): android.app.Notification {
-        return baseAlertBuilder(
-            context,
-            deviceAddress,
-            Constants.CHANNEL_ID_STICKY,
-            title,
-            body,
-            NotificationAccentDisconnect
-        )
-            .setOngoing(true)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .build()
-    }
-
-    fun notifySafely(context: Context, notificationId: Int, notification: android.app.Notification) {
+    fun notifySafely(context: Context, notificationId: Int, notification: Notification) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val granted = ContextCompat.checkSelfPermission(
                 context, Manifest.permission.POST_NOTIFICATIONS
@@ -228,7 +233,6 @@ object NotificationUtils {
         try {
             NotificationManagerCompat.from(context).notify(notificationId, notification)
         } catch (_: SecurityException) {
-            // Permission revoked between the check above and this call — safe to ignore.
         }
     }
 }

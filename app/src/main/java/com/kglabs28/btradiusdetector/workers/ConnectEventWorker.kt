@@ -5,7 +5,6 @@ import androidx.work.CoroutineWorker
 import androidx.work.Data
 import androidx.work.WorkerParameters
 import com.kglabs28.btradiusdetector.data.BleRssiRepository
-import com.kglabs28.btradiusdetector.data.local.AlertSettingsEntity
 import com.kglabs28.btradiusdetector.data.local.AppDatabase
 import com.kglabs28.btradiusdetector.service.StickyAlertService
 import com.kglabs28.btradiusdetector.utils.Constants
@@ -27,8 +26,8 @@ class ConnectEventWorker(
         }
 
         val dao = AppDatabase.getInstance(applicationContext).alertSettingsDao()
-        val settings = dao.getByAddress(address) ?: AlertSettingsEntity(address = address)
-        // Master toggle + per-event toggle: unmonitored devices never notify.
+        // Strict opt-in: never registered means stay silent for connects too.
+        val settings = dao.getByAddress(address) ?: return Result.success()
         if (!settings.monitoringEnabled || !settings.notifyOnReconnect) return Result.success()
 
         val repo = BleRssiRepository(applicationContext)

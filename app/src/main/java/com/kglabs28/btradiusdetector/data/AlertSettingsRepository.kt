@@ -3,6 +3,7 @@ package com.kglabs28.btradiusdetector.data
 import com.kglabs28.btradiusdetector.data.local.AlertSettingsDao
 import com.kglabs28.btradiusdetector.data.local.AlertSettingsEntity
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 /**
@@ -16,6 +17,10 @@ class AlertSettingsRepository(private val dao: AlertSettingsDao) {
 
     fun observeByAddress(address: String): Flow<AlertSettingsEntity?> =
         dao.observeAll().map { list -> list.find { it.address == address } }
+
+    /** One-shot address → monitoringEnabled map for services/workers. */
+    suspend fun monitoringMap(): Map<String, Boolean> =
+        dao.observeAll().first().associate { it.address to it.monitoringEnabled }
 
     suspend fun getByAddress(address: String): AlertSettingsEntity? =
         dao.getByAddress(address)
@@ -35,8 +40,23 @@ class AlertSettingsRepository(private val dao: AlertSettingsDao) {
     suspend fun setVibrationEnabled(address: String, enabled: Boolean) =
         upsertCopy(address) { copy(vibrationEnabled = enabled) }
 
-    suspend fun saveBestDirection(address: String, rssi: Int, heading: Float) =
-        upsertCopy(address) { copy(lastBestRssi = rssi, lastBestHeading = heading) }
+    suspend fun saveBestDirection(address: String, rssi: Int, heading: Float) {
+        val current = dao.getByAddress(address)
+        if (current == null) {
+            // Passive tracking must not opt the device into alerts: the row it
+            // creates stays master-off (sub-toggles default on, inert).
+            dao.upsert(
+                AlertSettingsEntity(
+                    address = address,
+                    monitoringEnabled = false,
+                    lastBestRssi = rssi,
+                    lastBestHeading = heading
+                )
+            )
+        } else {
+            dao.upsert(current.copy(lastBestRssi = rssi, lastBestHeading = heading))
+        }
+    }
 
     private suspend inline fun upsertCopy(
         address: String,

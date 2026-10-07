@@ -86,12 +86,20 @@ object Strings {
     const val keepNotifyingSubtitle = "Repeats the disconnect alert every few seconds until you tap it."
 
     // Notifications
-    fun disconnectTitle(deviceName: String) = "Lost connection to $deviceName"
+    fun disconnectTitle(deviceName: String) = "$deviceName Connection Lost"
     const val disconnectBody = "Device may be out of range."
     fun disconnectBodyWithBattery(percent: Int) = "$disconnectBody Battery $percent%."
-    fun reconnectTitle(deviceName: String) = "$deviceName reconnected."
+    fun reconnectTitle(deviceName: String) = "$deviceName Connected"
     const val reconnectBody = "Connection restored."
     fun reconnectBodyWithBattery(percent: Int) = "$reconnectBody Battery $percent%."
+    fun monitoringTitle(deviceName: String) = "Monitoring: $deviceName"
+    fun monitoringBody(battery: Int?) = if (battery != null) "Connected • $battery%" else "Connected"
+
+    // Monitoring (ongoing foreground service)
+    const val monitoringTitle = "Monitoring for range alerts"
+    const val monitoringBodyConnected = "Connected"
+    fun monitoringTitleFor(deviceName: String) = "Monitoring: $deviceName"
+    fun monitoringBodyConnectedWithBattery(percent: Int) = "Connected • $percent%"
 
     // Disconnect info screen
     fun disconnectedAgo(deviceName: String, elapsed: String) = "$deviceName disconnected $elapsed"

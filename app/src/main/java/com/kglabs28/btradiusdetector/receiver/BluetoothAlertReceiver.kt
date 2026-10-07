@@ -11,13 +11,11 @@ import android.util.Log
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
-import com.kglabs28.btradiusdetector.data.BleRssiRepository
-import com.kglabs28.btradiusdetector.data.local.AlertSettingsEntity
-import com.kglabs28.btradiusdetector.data.local.AppDatabase
-import com.kglabs28.btradiusdetector.service.StickyAlertService
+import com.kglabs28.btradiusdetector.data.DisconnectIntentStore
+import com.kglabs28.btradiusdetector.domain.usecase.EnsureDisconnectAlertUseCase
+import com.kglabs28.btradiusdetector.service.MonitoringService
 import com.kglabs28.btradiusdetector.utils.Constants
 import com.kglabs28.btradiusdetector.utils.NotificationUtils
-import com.kglabs28.btradiusdetector.utils.Strings
 import com.kglabs28.btradiusdetector.workers.ConnectEventWorker
 import com.kglabs28.btradiusdetector.workers.DisconnectCheckWorker
 import java.util.concurrent.TimeUnit
@@ -27,30 +25,40 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 /**
- * Alert entry point. Disconnects notify *immediately* here; the debounced
- * [DisconnectCheckWorker] only verifies afterwards and retracts blips.
- * Nothing user-visible ever waits on WorkManager scheduling.
+ * Alert entry point. The drop flag is written synchronously here so a later
+ * process death can't lose it; posting runs off-main via goAsync, and the
+ * debounced worker only verifies/retracts afterwards.
  */
 class BluetoothAlertReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
+        // Reboot: bring the monitor back without waiting for app launch.
+        if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
+            MonitoringService.ensure(context)
+            return
+        }
         val device = extractDevice(intent) ?: return
         val address = device.address
         val workManager = WorkManager.getInstance(context)
 
         when (intent.action) {
             BluetoothDevice.ACTION_ACL_CONNECTED -> onConnected(context, workManager, address)
-            BluetoothDevice.ACTION_ACL_DISCONNECTED -> onDisconnected(context, workManager, address, authoritative = true)
+            BluetoothDevice.ACTION_ACL_DISCONNECTED -> {
+                DisconnectIntentStore(context).markDisconnected(address)
+                onDisconnected(context, workManager, address)
+            }
 
             // Profile-level fallbacks: on some ROMs the ACL broadcast is
             // throttled while profile state changes still arrive (and vice
-            // versa). Profile drops are advisory only — the link may be alive.
+            // versa). The verifier retracts anything that wasn't a real drop.
             BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED,
             BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED -> {
                 when (intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1)) {
                     BluetoothProfile.STATE_CONNECTED -> onConnected(context, workManager, address)
-                    BluetoothProfile.STATE_DISCONNECTED ->
-                        onDisconnected(context, workManager, address, authoritative = false)
+                    BluetoothProfile.STATE_DISCONNECTED -> {
+                        DisconnectIntentStore(context).markDisconnected(address)
+                        onDisconnected(context, workManager, address)
+                    }
                     else -> Unit
                 }
             }
@@ -59,6 +67,7 @@ class BluetoothAlertReceiver : BroadcastReceiver() {
 
     private fun onConnected(context: Context, workManager: WorkManager, address: String) {
         Log.d(TAG, "connected: $address — clearing any disconnect alert")
+        DisconnectIntentStore(context).clear(address)
         // A reconnect cancels any pending verify pass and retracts an
         // immediate alert if the drop turned out to be a blip.
         workManager.cancelUniqueWork(disconnectWorkName(address))
@@ -74,17 +83,14 @@ class BluetoothAlertReceiver : BroadcastReceiver() {
         )
     }
 
-    private fun onDisconnected(
-        context: Context,
-        workManager: WorkManager,
-        address: String,
-        authoritative: Boolean
-    ) {
+    private fun onDisconnected(context: Context, workManager: WorkManager, address: String) {
         // goAsync: the DB + binder reads below must not run on the main thread.
+        // The flag above already guarantees delivery even if this dies.
         val pending = goAsync()
         receiverScope.launch {
             try {
-                postDisconnectAlert(context.applicationContext, address, authoritative)
+                MonitoringService.ensure(context)
+                EnsureDisconnectAlertUseCase.create(context).ensure(address)
             } finally {
                 pending.finish()
             }
@@ -101,38 +107,6 @@ class BluetoothAlertReceiver : BroadcastReceiver() {
             ExistingWorkPolicy.REPLACE,
             request
         )
-    }
-
-    private suspend fun postDisconnectAlert(appContext: Context, address: String, authoritative: Boolean) {
-        val dao = AppDatabase.getInstance(appContext).alertSettingsDao()
-        val settings = dao.getByAddress(address) ?: AlertSettingsEntity(address = address)
-        if (!settings.monitoringEnabled || !settings.notifyOnDisconnect) {
-            Log.d(TAG, "disconnect alert disabled, skipping: $address")
-            return
-        }
-        val repo = BleRssiRepository(appContext)
-        if (!authoritative && repo.isConnected(address)) {
-            Log.d(TAG, "profile blip while link alive, no alert: $address")
-            return
-        }
-        val deviceName = repo.getBondedDevices().find { it.address == address }?.name ?: address
-        if (settings.keepNotifyingOnDisconnect) {
-            StickyAlertService.start(appContext, address, deviceName)
-        } else {
-            NotificationUtils.notifySafely(
-                appContext,
-                NotificationUtils.disconnectNotificationId(address),
-                NotificationUtils.buildDisconnectNotification(
-                    appContext,
-                    address,
-                    Strings.disconnectTitle(deviceName),
-                    NotificationUtils.disconnectBody(repo, settings, address),
-                    settings.soundEnabled,
-                    settings.vibrationEnabled
-                )
-            )
-        }
-        Log.d(TAG, "disconnect alert posted immediately (authoritative=$authoritative): $address")
     }
 
     private fun extractDevice(intent: Intent): BluetoothDevice? {
