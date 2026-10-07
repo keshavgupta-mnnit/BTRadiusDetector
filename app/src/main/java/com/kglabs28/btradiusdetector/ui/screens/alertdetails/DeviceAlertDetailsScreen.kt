@@ -20,7 +20,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -44,9 +43,8 @@ fun DeviceAlertDetailsScreen(
     deviceId: String,
     onBack: () -> Unit
 ) {
-    val context = LocalContext.current
     val viewModel: DeviceAlertDetailsViewModel =
-        viewModel(factory = DeviceAlertDetailsViewModel.factory(context, deviceId))
+        viewModel(factory = DeviceAlertDetailsViewModel.factory(deviceId))
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     Scaffold(

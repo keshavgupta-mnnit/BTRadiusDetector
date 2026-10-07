@@ -1,13 +1,13 @@
 package com.kglabs28.btradiusdetector.ui.screens.settings
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.kglabs28.btradiusdetector.BTRadiusDetectorApp
 import com.kglabs28.btradiusdetector.data.AlertSettingsRepository
-import com.kglabs28.btradiusdetector.data.BleRssiRepository
 import com.kglabs28.btradiusdetector.data.local.AppDatabase
 import com.kglabs28.btradiusdetector.domain.model.BluetoothDeviceModel
+import com.kglabs28.btradiusdetector.utils.BluetoothUtils
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -17,29 +17,28 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-/**
- * Everything the settings screen renders, observed as one flow.
- */
+/** Everything the settings screen renders, observed as one flow. */
 data class SettingsUiState(
     val devices: List<BluetoothDeviceModel> = emptyList(),
     val alertEnabled: Map<String, Boolean> = emptyMap()
 )
 
 /**
- * Owns Settings screen state (UDF). Master toggles persist to Room via
- * [AlertSettingsRepository]; the screen observes [uiState] once.
+ * Thin wiring only: combines the bonded-device stream with stored flags into
+ * [uiState]. Bluetooth reads go straight to [BluetoothUtils].
  */
 class SettingsViewModel(
-    bleRepository: BleRssiRepository,
     private val settingsRepository: AlertSettingsRepository
 ) : ViewModel() {
+
+    private val appContext get() = BTRadiusDetectorApp.appContext
 
     private val refreshTrigger = MutableStateFlow(0)
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val bondedDevices: StateFlow<List<BluetoothDeviceModel>> = refreshTrigger
-        .flatMapLatest { bleRepository.getBondedDevicesFlow() }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    private val bondedDevices = refreshTrigger
+        .flatMapLatest { BluetoothUtils.getBondedDevicesFlow(appContext) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList<BluetoothDeviceModel>())
 
     private val storedSettings = settingsRepository.observeAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -62,17 +61,18 @@ class SettingsViewModel(
     }
 
     fun setAlertEnabled(address: String, enabled: Boolean) {
-        viewModelScope.launch { settingsRepository.setMonitoringEnabled(address, enabled) }
+        viewModelScope.launch {
+            settingsRepository.setMonitoringEnabled(address, enabled)
+        }
     }
 
     companion object {
-        fun factory(context: Context): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
+        fun factory(): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                val appContext = context.applicationContext
+                val app = BTRadiusDetectorApp.appContext
                 return SettingsViewModel(
-                    BleRssiRepository(appContext),
-                    AlertSettingsRepository(AppDatabase.getInstance(appContext).alertSettingsDao())
+                    AlertSettingsRepository(AppDatabase.getInstance(app).alertSettingsDao())
                 ) as T
             }
         }

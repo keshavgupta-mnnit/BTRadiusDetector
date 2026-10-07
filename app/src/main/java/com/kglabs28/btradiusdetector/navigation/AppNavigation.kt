@@ -13,7 +13,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavKey
@@ -22,7 +21,6 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
-import com.kglabs28.btradiusdetector.service.MonitoringService
 import com.kglabs28.btradiusdetector.ui.components.PermissionRationaleDialog
 import com.kglabs28.btradiusdetector.ui.components.PermissionRequestContent
 import com.kglabs28.btradiusdetector.ui.screens.alertdetails.DeviceAlertDetailsScreen
@@ -47,7 +45,6 @@ fun AppNavigation(
     onDeepLinkConsumed: () -> Unit,
     onOnboardingComplete: () -> Unit
 ) {
-    val context = LocalContext.current
     val permissionsToRequest = remember {
         val list = mutableListOf<String>()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -83,10 +80,6 @@ fun AppNavigation(
         }
         return
     }
-
-    // Permissions granted: the monitor may now start (its foreground type
-    // requires BLUETOOTH_CONNECT, so this must not run before this gate).
-    LaunchedEffect(Unit) { MonitoringService.ensure(context) }
 
     val initialRoute = if (showOnboarding) NavRoute.Onboarding else NavRoute.Scan
     val backStack = rememberNavBackStack(initialRoute)

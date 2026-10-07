@@ -21,7 +21,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kglabs28.btradiusdetector.ui.components.EmptyState
@@ -39,8 +38,7 @@ fun HomeScreen(
     onDeviceSelected: (String) -> Unit,
     onSettingsClick: () -> Unit
 ) {
-    val context = LocalContext.current
-    val viewModel: HomeViewModel = viewModel(factory = HomeViewModel.factory(context))
+    val viewModel: HomeViewModel = viewModel(factory = HomeViewModel.factory())
 
     LaunchedEffect(Unit) { viewModel.refresh() }
 

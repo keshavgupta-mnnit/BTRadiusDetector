@@ -3,24 +3,17 @@ package com.kglabs28.btradiusdetector.data
 import com.kglabs28.btradiusdetector.data.local.AlertSettingsDao
 import com.kglabs28.btradiusdetector.data.local.AlertSettingsEntity
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 
 /**
- * Single point of access for per-device alert preferences and the persisted
- * best-signal snapshot. Workers, ViewModels and services all go through here
- * instead of touching the DAO directly.
+ * Plain CRUD over one flags row per device. Reads go straight to the DAO —
+ * no in-memory copies, no whole-table scans for a single row.
  */
 class AlertSettingsRepository(private val dao: AlertSettingsDao) {
 
     fun observeAll(): Flow<List<AlertSettingsEntity>> = dao.observeAll()
 
     fun observeByAddress(address: String): Flow<AlertSettingsEntity?> =
-        dao.observeAll().map { list -> list.find { it.address == address } }
-
-    /** One-shot address → monitoringEnabled map for services/workers. */
-    suspend fun monitoringMap(): Map<String, Boolean> =
-        dao.observeAll().first().associate { it.address to it.monitoringEnabled }
+        dao.observeByAddress(address)
 
     suspend fun getByAddress(address: String): AlertSettingsEntity? =
         dao.getByAddress(address)
@@ -40,11 +33,13 @@ class AlertSettingsRepository(private val dao: AlertSettingsDao) {
     suspend fun setVibrationEnabled(address: String, enabled: Boolean) =
         upsertCopy(address) { copy(vibrationEnabled = enabled) }
 
+    /**
+     * Passive tracking must not opt the device into alerts: the row it
+     * creates stays master-off (sub-toggles default on, inert).
+     */
     suspend fun saveBestDirection(address: String, rssi: Int, heading: Float) {
         val current = dao.getByAddress(address)
         if (current == null) {
-            // Passive tracking must not opt the device into alerts: the row it
-            // creates stays master-off (sub-toggles default on, inert).
             dao.upsert(
                 AlertSettingsEntity(
                     address = address,

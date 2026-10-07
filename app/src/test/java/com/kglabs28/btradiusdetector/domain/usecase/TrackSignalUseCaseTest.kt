@@ -7,6 +7,7 @@ import com.kglabs28.btradiusdetector.utils.Constants
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -18,15 +19,13 @@ private class FakeAlertSettingsDao : AlertSettingsDao {
 
     override fun observeAll(): Flow<List<AlertSettingsEntity>> = stream
 
+    override fun observeByAddress(address: String): Flow<AlertSettingsEntity?> =
+        stream.map { list -> list.find { it.address == address } }
+
     override suspend fun getByAddress(address: String): AlertSettingsEntity? = rows[address]
 
     override suspend fun upsert(entity: AlertSettingsEntity) {
         rows[entity.address] = entity
-        stream.value = rows.values.toList()
-    }
-
-    override suspend fun delete(entity: AlertSettingsEntity) {
-        rows.remove(entity.address)
         stream.value = rows.values.toList()
     }
 }

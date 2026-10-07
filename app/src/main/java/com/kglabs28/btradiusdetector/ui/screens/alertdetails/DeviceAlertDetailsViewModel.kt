@@ -1,20 +1,19 @@
 package com.kglabs28.btradiusdetector.ui.screens.alertdetails
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.kglabs28.btradiusdetector.BTRadiusDetectorApp
 import com.kglabs28.btradiusdetector.data.AlertSettingsRepository
-import com.kglabs28.btradiusdetector.data.BleRssiRepository
 import com.kglabs28.btradiusdetector.data.local.AppDatabase
 import com.kglabs28.btradiusdetector.domain.usecase.ObserveAlertSettingsUseCase
-import com.kglabs28.btradiusdetector.domain.usecase.ObserveBondedDevicesUseCase
-import com.kglabs28.btradiusdetector.domain.usecase.ObserveDeviceUseCase
 import com.kglabs28.btradiusdetector.domain.usecase.UpdateAlertSettingUseCase
+import com.kglabs28.btradiusdetector.utils.BluetoothUtils
 import com.kglabs28.btradiusdetector.utils.Strings
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -46,13 +45,14 @@ sealed interface AlertDetailsEvent {
  */
 class DeviceAlertDetailsViewModel(
     private val address: String,
-    observeDevice: ObserveDeviceUseCase,
     observeAlerts: ObserveAlertSettingsUseCase,
     private val updateAlerts: UpdateAlertSettingUseCase
 ) : ViewModel() {
 
     val uiState: StateFlow<AlertDetailsUiState> = combine(
-        observeDevice(address),
+        BluetoothUtils.getBondedDevicesFlow(BTRadiusDetectorApp.appContext).map { devices ->
+            devices.find { it.address == address }
+        },
         observeAlerts.observeByAddress(address)
     ) { device, row ->
         AlertDetailsUiState(
@@ -86,19 +86,16 @@ class DeviceAlertDetailsViewModel(
     }
 
     companion object {
-        fun factory(context: Context, address: String): ViewModelProvider.Factory =
+        fun factory(address: String): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                    val appContext = context.applicationContext
-                    val ble = BleRssiRepository(appContext)
+                    val app = BTRadiusDetectorApp.appContext
                     val settings = AlertSettingsRepository(
-                        AppDatabase.getInstance(appContext).alertSettingsDao()
+                        AppDatabase.getInstance(app).alertSettingsDao()
                     )
-                    val observeBondedDevices = ObserveBondedDevicesUseCase(ble)
                     return DeviceAlertDetailsViewModel(
                         address = address,
-                        observeDevice = ObserveDeviceUseCase(observeBondedDevices),
                         observeAlerts = ObserveAlertSettingsUseCase(settings),
                         updateAlerts = UpdateAlertSettingUseCase(settings)
                     ) as T

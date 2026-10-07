@@ -1,14 +1,16 @@
 package com.kglabs28.btradiusdetector.ui.screens.home
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.kglabs28.btradiusdetector.data.BleRssiRepository
+import com.kglabs28.btradiusdetector.BTRadiusDetectorApp
 import com.kglabs28.btradiusdetector.domain.model.BluetoothDeviceModel
-import com.kglabs28.btradiusdetector.domain.usecase.ObserveBondedDevicesUseCase
+import com.kglabs28.btradiusdetector.utils.BluetoothUtils
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
@@ -18,29 +20,30 @@ data class HomeUiState(
 )
 
 /**
- * Thin wiring only: exposes the bonded-device stream as [uiState].
- * Refresh and repository access live in [ObserveBondedDevicesUseCase].
+ * Thin wiring only: bonded-device stream as [uiState].
+ * Bluetooth reads go straight to [BluetoothUtils].
  */
-class HomeViewModel(
-    private val observeBondedDevices: ObserveBondedDevicesUseCase
-) : ViewModel() {
+class HomeViewModel : ViewModel() {
 
-    val uiState: StateFlow<HomeUiState> = observeBondedDevices()
+    private val appContext get() = BTRadiusDetectorApp.appContext
+
+    private val refreshTrigger = MutableStateFlow(0)
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val uiState: StateFlow<HomeUiState> = refreshTrigger
+        .flatMapLatest { BluetoothUtils.getBondedDevicesFlow(appContext) }
         .map { devices -> HomeUiState(devices) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HomeUiState())
 
     fun refresh() {
-        observeBondedDevices.refresh()
+        refreshTrigger.value += 1
     }
 
     companion object {
-        fun factory(context: Context): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
+        fun factory(): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                val appContext = context.applicationContext
-                return HomeViewModel(
-                    ObserveBondedDevicesUseCase(BleRssiRepository(appContext))
-                ) as T
+                return HomeViewModel() as T
             }
         }
     }

@@ -57,7 +57,7 @@ fun TrackingScreen(
     onSettingsClick: () -> Unit
 ) {
     val context = LocalContext.current
-    val viewModel: TrackingViewModel = viewModel(factory = TrackingViewModel.factory(context, deviceId))
+    val viewModel: TrackingViewModel = viewModel(factory = TrackingViewModel.factory(deviceId))
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     var showHelp by remember { mutableStateOf(false) }

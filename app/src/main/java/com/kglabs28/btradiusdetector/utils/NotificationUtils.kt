@@ -16,7 +16,6 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.kglabs28.btradiusdetector.MainActivity
 import com.kglabs28.btradiusdetector.R
-import com.kglabs28.btradiusdetector.data.BleRssiRepository
 import com.kglabs28.btradiusdetector.data.local.AlertSettingsEntity
 import com.kglabs28.btradiusdetector.ui.theme.NotificationAccentDisconnect
 import com.kglabs28.btradiusdetector.ui.theme.NotificationAccentReconnect
@@ -53,24 +52,13 @@ object NotificationUtils {
             enableVibration(true)
         }
 
-        val sticky = NotificationChannel(
-            Constants.CHANNEL_ID_STICKY,
-            context.getString(R.string.notification_channel_sticky_name),
-            NotificationManager.IMPORTANCE_HIGH
-        ).apply {
-            enableVibration(true)
-        }
-
-        manager.createNotificationChannels(listOf(silent, sound, vibrate, sticky))
+        manager.createNotificationChannels(listOf(silent, sound, vibrate))
     }
 
     /**
-     * Shared base matching the app's notification design:
-     * - Custom collapsed + expanded views: accent rounded icon, bold title, body.
-     * - Stock title/body/intent/timestamp stay set so watches and stripped
-     *   views still render something sane.
-     * - Accent color: Red for disconnect, Mint Green for reconnect & monitoring.
-     * - Tap action: opens the device tracking screen.
+     * Shared base for range alerts: bold title, body, timestamp, accent
+     * icon tint, tap opens the device tracking screen.
+     * Accent color: Red for disconnect, Mint Green for reconnect.
      */
     private fun baseAlertBuilder(
         context: Context,
@@ -137,27 +125,6 @@ object NotificationUtils {
             .build()
     }
 
-    /** Ongoing persistent monitoring / disconnect alert */
-    fun buildStickyAlertNotification(
-        context: Context,
-        deviceAddress: String,
-        title: String,
-        body: String
-    ): Notification {
-        return baseAlertBuilder(
-            context,
-            deviceAddress,
-            Constants.CHANNEL_ID_STICKY,
-            title,
-            body,
-            NotificationAccentDisconnect,
-            isDisconnect = true
-        )
-            .setOngoing(true)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .build()
-    }
-
     fun trackingPendingIntent(context: Context, deviceAddress: String?): PendingIntent {
         val intent = Intent(context, MainActivity::class.java).apply {
             action = MainActivity.ACTION_TRACK_DEVICE
@@ -171,32 +138,6 @@ object NotificationUtils {
         )
     }
 
-    /**
-     * Ongoing "Monitoring" notification (green, persistent): shows the live
-     * monitored device with battery, or the idle state. Tapping opens that
-     * device's tracking screen, or the app home when nothing is live.
-     */
-    fun buildMonitoringNotification(
-        context: Context,
-        deviceAddress: String?,
-        title: String,
-        body: String
-    ): android.app.Notification {
-        return baseAlertBuilder(
-            context,
-            deviceAddress,
-            Constants.CHANNEL_ID_STICKY,
-            title,
-            body,
-            NotificationAccentReconnect,
-            isDisconnect = false
-        )
-            .setOngoing(true)
-            .setAutoCancel(false)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
-    }
-
     fun disconnectNotificationId(address: String): Int =
         Constants.NOTIF_ID_DISCONNECT_BASE + address.hashCode()
 
@@ -208,11 +149,11 @@ object NotificationUtils {
     }
 
     fun disconnectBody(
-        repo: BleRssiRepository,
+        context: Context,
         settings: AlertSettingsEntity,
         address: String
     ): String {
-        var body = repo.getLastKnownBattery(address)?.let { Strings.disconnectBodyWithBattery(it) }
+        var body = BluetoothUtils.getLastKnownBattery(context, address)?.let { Strings.disconnectBodyWithBattery(it) }
             ?: Strings.disconnectBody
         if (settings.lastBestRssi > Constants.RSSI_FLOOR) {
             body += " " + Strings.lastSeenLabel(

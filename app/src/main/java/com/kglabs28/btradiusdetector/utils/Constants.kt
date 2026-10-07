@@ -10,17 +10,12 @@ object Constants {
     const val CHANNEL_ID_SILENT = "range_alerts_silent"
     const val CHANNEL_ID_SOUND = "range_alerts_sound"
     const val CHANNEL_ID_VIBRATE = "range_alerts_vibrate"
-    const val CHANNEL_ID_STICKY = "sticky_disconnect_alert"
 
     // Notification IDs
     const val NOTIF_ID_DISCONNECT_BASE = 1000
     const val NOTIF_ID_RECONNECT_BASE = 2000
-    const val NOTIF_ID_STICKY = 3000
-    const val NOTIF_ID_MONITORING = 4000
 
     // Behavior tuning
-    const val DISCONNECT_DEBOUNCE_MS = 5_000L
-    const val STICKY_REPEAT_INTERVAL_MS = 5_000L
     const val RSSI_SMOOTHING_WINDOW = 5
 
     // Tracking UI tuning (no magic numbers in composables)
@@ -49,6 +44,10 @@ object Constants {
 
     // Pending disconnect flags older than this never alert (stale drop).
     const val PENDING_ALERT_STALE_MS = 30 * 60 * 1_000L
+
+    // Same-device same-event posts inside this window are one physical
+    // flap (ACL + A2DP + headset broadcasts for a single connect) — post once.
+    const val ALERT_DEDUP_MS = 5_000L
 
     // Background glow (no magic numbers in composables)
     const val RADIAL_GLOW_RADIUS = 1000f

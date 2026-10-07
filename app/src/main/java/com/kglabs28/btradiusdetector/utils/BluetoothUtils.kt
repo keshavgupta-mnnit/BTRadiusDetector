@@ -1,4 +1,4 @@
-package com.kglabs28.btradiusdetector.data
+package com.kglabs28.btradiusdetector.utils
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -21,19 +21,25 @@ import android.os.Build
 import androidx.core.content.ContextCompat
 import com.kglabs28.btradiusdetector.data.util.MovingAverageFilter
 import com.kglabs28.btradiusdetector.domain.model.BluetoothDeviceModel
-import com.kglabs28.btradiusdetector.utils.Constants
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
 
-class BleRssiRepository(private val context: Context) {
-    private val bluetoothManager by lazy {
-        context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-    }
-    private val bluetoothAdapter: BluetoothAdapter? by lazy { bluetoothManager.adapter }
+/**
+ * Direct Bluetooth system access. Plain functions taking [Context] — no
+ * instances, no stored state, no ceremony. Pure data maintenance (the alert
+ * flags table) lives in AlertSettingsRepository instead.
+ */
+object BluetoothUtils {
 
-    fun hasConnectPermission(): Boolean {
+    private fun bluetoothManager(context: Context): BluetoothManager =
+        context.applicationContext.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+
+    private fun bluetoothAdapter(context: Context): BluetoothAdapter? =
+        bluetoothManager(context).adapter
+
+    fun hasConnectPermission(context: Context): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             ContextCompat.checkSelfPermission(
                 context,
@@ -47,7 +53,7 @@ class BleRssiRepository(private val context: Context) {
         }
     }
 
-    fun hasScanPermission(): Boolean {
+    fun hasScanPermission(context: Context): Boolean {
         val scanOk = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             ContextCompat.checkSelfPermission(
                 context,
@@ -65,19 +71,19 @@ class BleRssiRepository(private val context: Context) {
     }
 
     @SuppressLint("MissingPermission")
-    fun getBondedDevices(): List<BluetoothDeviceModel> {
-        if (!hasConnectPermission()) {
+    fun getBondedDevices(context: Context): List<BluetoothDeviceModel> {
+        if (!hasConnectPermission(context)) {
             return emptyList()
         }
         return try {
-            bluetoothAdapter?.bondedDevices?.map { device ->
+            bluetoothAdapter(context)?.bondedDevices?.map { device ->
                 BluetoothDeviceModel(
                     address = device.address,
                     name = runCatching { device.name }.getOrNull() ?: "Unknown Device",
                     deviceClass = runCatching { device.bluetoothClass?.majorDeviceClass }.getOrNull()
                         ?: BluetoothClass.Device.Major.UNCATEGORIZED,
                     minorDeviceClass = runCatching { device.bluetoothClass?.deviceClass }.getOrNull() ?: 0,
-                    isConnected = isDeviceConnected(device)
+                    isConnected = isDeviceConnected(context, device)
                 )
             } ?: emptyList()
         } catch (_: SecurityException) {
@@ -86,12 +92,12 @@ class BleRssiRepository(private val context: Context) {
     }
 
     @SuppressLint("MissingPermission")
-    fun getBondedDevicesFlow(): Flow<List<BluetoothDeviceModel>> = callbackFlow {
-        trySend(getBondedDevices())
+    fun getBondedDevicesFlow(context: Context): Flow<List<BluetoothDeviceModel>> = callbackFlow {
+        trySend(getBondedDevices(context))
 
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context?, intent: Intent?) {
-                trySend(getBondedDevices())
+                trySend(getBondedDevices(context))
             }
         }
 
@@ -118,36 +124,32 @@ class BleRssiRepository(private val context: Context) {
     }
 
     /**
-     * Public, address-based connection check — used by DisconnectCheckWorker
-     * to re-verify a device's state after the debounce delay, without needing
-     * a live BluetoothDevice reference at that point.
+     * Address-based connection check for background alert paths that hold no
+     * live BluetoothDevice reference.
      */
     @SuppressLint("MissingPermission")
-    fun isConnected(address: String): Boolean {
-        if (!hasConnectPermission()) return false
+    fun isConnected(context: Context, address: String): Boolean {
+        if (!hasConnectPermission(context)) return false
         return try {
-            val device = bluetoothAdapter?.bondedDevices?.find { it.address == address } ?: return false
-            isDeviceConnected(device)
+            val device = bluetoothAdapter(context)?.bondedDevices?.find { it.address == address } ?: return false
+            isDeviceConnected(context, device)
         } catch (_: SecurityException) {
             false
         }
     }
 
     @SuppressLint("MissingPermission")
-    private fun isDeviceConnected(device: BluetoothDevice): Boolean {
-        if (!hasConnectPermission()) return false
-        // 1) Profile-level checks. BluetoothManager.getConnectionState() is only
-        // reliable for GATT; classic profiles (A2DP/HEADSET) must be queried via
-        // the adapter so earbuds/speakers/watches are not missed.
-        if (isConnectedViaProfiles(device)) return true
-        // 2) ACL-level fallback via hidden BluetoothDevice.isConnected().
-        // Catches HID/PAN/MAP/LE-audio links that expose no public profile API.
+    private fun isDeviceConnected(context: Context, device: BluetoothDevice): Boolean {
+        if (!hasConnectPermission(context)) return false
+        if (isConnectedViaProfiles(context, device)) return true
+        // ACL-level fallback via hidden BluetoothDevice.isConnected().
         return isConnectedViaReflection(device)
     }
 
     @SuppressLint("MissingPermission")
-    private fun isConnectedViaProfiles(device: BluetoothDevice): Boolean {
+    private fun isConnectedViaProfiles(context: Context, device: BluetoothDevice): Boolean {
         val address = device.address
+        val manager = bluetoothManager(context)
         val profiles = buildList {
             add(BluetoothProfile.GATT)
             add(BluetoothProfile.GATT_SERVER)
@@ -156,19 +158,19 @@ class BleRssiRepository(private val context: Context) {
             add(BluetoothProfile.HEALTH)
             // NOTE: HID/PAN/MAP/SAP/A2DP_SINK proxy constants are absent from
             // this compile SDK's BluetoothProfile, so they are covered by the
-            // ACL-level reflection fallback in isConnectedViaReflection() below.
+            // ACL-level reflection fallback below.
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) add(BluetoothProfile.HEARING_AID)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) add(BluetoothProfile.LE_AUDIO)
         }
         return profiles.any { profile ->
             // Per-device connected-device list (accurate, no cross-device false positives).
             val inConnectedSet = runCatching {
-                bluetoothManager.getConnectedDevices(profile).any { it.address == address }
+                manager.getConnectedDevices(profile).any { it.address == address }
             }.getOrDefault(false)
             if (inConnectedSet) return@any true
             // Per-device state as second signal (works for GATT; classic proxies may throw).
             runCatching {
-                bluetoothManager.getConnectionState(device, profile) == BluetoothProfile.STATE_CONNECTED
+                manager.getConnectionState(device, profile) == BluetoothProfile.STATE_CONNECTED
             }.getOrDefault(false)
         }
     }
@@ -197,8 +199,8 @@ class BleRssiRepository(private val context: Context) {
      */
     @SuppressLint("MissingPermission")
     @Suppress("DEPRECATION") // 4-arg connectGatt works on minSdk 24–37; executor variant is S+ only.
-    fun getRssiFlow(targetDeviceAddress: String): Flow<Int> = callbackFlow {
-        if (!hasScanPermission() || !hasConnectPermission()) {
+    fun getRssiFlow(context: Context, targetDeviceAddress: String): Flow<Int> = callbackFlow {
+        if (!hasScanPermission(context) || !hasConnectPermission(context)) {
             close(Exception("Bluetooth and Location permissions are required for signal tracking."))
             return@callbackFlow
         }
@@ -219,7 +221,7 @@ class BleRssiRepository(private val context: Context) {
 
         fun startBleScan() {
             if (bleCallback != null) return
-            val scanner = bluetoothAdapter?.bluetoothLeScanner ?: return
+            val scanner = bluetoothAdapter(context)?.bluetoothLeScanner ?: return
             val callback = object : ScanCallback() {
                 override fun onScanResult(callbackType: Int, result: ScanResult) {
                     if (result.device.address == targetDeviceAddress) {
@@ -254,7 +256,7 @@ class BleRssiRepository(private val context: Context) {
 
         fun stopBleScan() {
             bleCallback?.let { callback ->
-                runCatching { bluetoothAdapter?.bluetoothLeScanner?.stopScan(callback) }
+                runCatching { bluetoothAdapter(context)?.bluetoothLeScanner?.stopScan(callback) }
             }
             bleCallback = null
         }
@@ -298,7 +300,7 @@ class BleRssiRepository(private val context: Context) {
                     gattRetry?.cancel()
                     gattRetry = scope.launch {
                         kotlinx.coroutines.delay(Constants.GATT_RETRY_MS)
-                        if (bluetoothAdapter?.isEnabled == true) {
+                        if (bluetoothAdapter(context)?.isEnabled == true) {
                             runCatching { g.connect() }
                         }
                     }
@@ -313,7 +315,7 @@ class BleRssiRepository(private val context: Context) {
         }
 
         fun startGatt() {
-            val adapter = bluetoothAdapter ?: return
+            val adapter = bluetoothAdapter(context) ?: return
             if (!adapter.isEnabled) return
             if (gatt != null) return
             val device = runCatching {
@@ -326,7 +328,7 @@ class BleRssiRepository(private val context: Context) {
         }
 
         fun startDiscovery() {
-            val adapter = bluetoothAdapter ?: return
+            val adapter = bluetoothAdapter(context) ?: return
             if (!adapter.isEnabled || adapter.isDiscovering) return
             runCatching { adapter.startDiscovery() }
         }
@@ -380,7 +382,7 @@ class BleRssiRepository(private val context: Context) {
         val supervisor = scope.launch {
             while (true) {
                 kotlinx.coroutines.delay(Constants.STALE_CHECK_MS)
-                val adapter = bluetoothAdapter
+                val adapter = bluetoothAdapter(context)
                 val stale = android.os.SystemClock.elapsedRealtime() - lastEmit.get() >
                     Constants.STALE_TIMEOUT_MS
                 if (stale && adapter?.isEnabled == true && !adapter.isDiscovering) {
@@ -393,13 +395,13 @@ class BleRssiRepository(private val context: Context) {
             supervisor.cancel()
             stopBleScan()
             stopGatt()
-            runCatching { bluetoothAdapter?.cancelDiscovery() }
+            runCatching { bluetoothAdapter(context)?.cancelDiscovery() }
             runCatching { context.unregisterReceiver(receiver) }
         }
     }
 
     /**
-     * Best-effort headset battery level (0–100) for [targetDeviceAddress}.
+     * Best-effort headset battery level (0–100) for [targetDeviceAddress].
      * Emits null when the device/ROM doesn't report it — many Buds-style
      * devices only expose battery via their companion app, never over HFP.
      * The UI hides the battery row in that case instead of showing stale data.
@@ -409,8 +411,8 @@ class BleRssiRepository(private val context: Context) {
      * used because the action/extra are @hide with no SDK constant.
      */
     @SuppressLint("MissingPermission")
-    fun getBatteryFlow(targetDeviceAddress: String): Flow<Int?> = callbackFlow {
-        if (!hasConnectPermission()) {
+    fun getBatteryFlow(context: Context, targetDeviceAddress: String): Flow<Int?> = callbackFlow {
+        if (!hasConnectPermission(context)) {
             close(Exception("Bluetooth Connect permission not granted."))
             return@callbackFlow
         }
@@ -525,7 +527,7 @@ class BleRssiRepository(private val context: Context) {
         }
 
         runCatching {
-            val adapter = bluetoothAdapter
+            val adapter = bluetoothAdapter(context)
             if (adapter?.isEnabled == true && basGatt == null) {
                 val device = adapter.bondedDevices?.find { it.address == targetDeviceAddress }
                     ?: adapter.getRemoteDevice(targetDeviceAddress)
@@ -540,11 +542,11 @@ class BleRssiRepository(private val context: Context) {
     }
 
     /**
-     * Synchronous sticky-broadcast lookup for workers building notification
-     * bodies. Returns null when nothing was ever broadcast for [address].
+     * Synchronous sticky-broadcast lookup for notification bodies.
+     * Returns null when nothing was ever broadcast for [address].
      */
-    fun getLastKnownBattery(address: String): Int? {
-        if (!hasConnectPermission()) return null
+    fun getLastKnownBattery(context: Context, address: String): Int? {
+        if (!hasConnectPermission(context)) return null
         val sticky = runCatching {
             context.registerReceiver(null, IntentFilter(ACTION_BATTERY_LEVEL_CHANGED))
         }.getOrNull() ?: return null
@@ -560,15 +562,13 @@ class BleRssiRepository(private val context: Context) {
     }
 
     // GATT Battery Service (0x180F) / Battery Level (0x2A19) — standard SIG UUIDs.
-    companion object {
-        private const val ACTION_BATTERY_LEVEL_CHANGED =
-            "android.bluetooth.device.action.BATTERY_LEVEL_CHANGED"
-        private const val EXTRA_BATTERY_LEVEL = "android.bluetooth.device.extra.BATTERY_LEVEL"
-        private const val BATTERY_UNKNOWN = -1
-        private val BAS_SERVICE_UUID =
-            java.util.UUID.fromString("0000180f-0000-1000-8000-00805f9a34fb")
-        private val BAS_LEVEL_UUID =
-            java.util.UUID.fromString("00002a19-0000-1000-8000-00805f9a34fb")
-        private const val GATT_BATTERY_POLL_MS = 60_000L
-    }
+    private const val ACTION_BATTERY_LEVEL_CHANGED =
+        "android.bluetooth.device.action.BATTERY_LEVEL_CHANGED"
+    private const val EXTRA_BATTERY_LEVEL = "android.bluetooth.device.extra.BATTERY_LEVEL"
+    private const val BATTERY_UNKNOWN = -1
+    private val BAS_SERVICE_UUID =
+        java.util.UUID.fromString("0000180f-0000-1000-8000-00805f9a34fb")
+    private val BAS_LEVEL_UUID =
+        java.util.UUID.fromString("00002a19-0000-1000-8000-00805f9a34fb")
+    private const val GATT_BATTERY_POLL_MS = 60_000L
 }

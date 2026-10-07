@@ -24,11 +24,10 @@ class DisconnectIntentStore(context: Context) {
 
     /** Fresh (recent, unhandled) pending drops. */
     fun freshPending(staleAfterMs: Long): Map<String, Long> {
-        val now = System.currentTimeMillis()
         return prefs.all.mapNotNull { (key, value) ->
             val address = key.removePrefix(KEY_PREFIX).takeIf { key.startsWith(KEY_PREFIX) } ?: return@mapNotNull null
             val at = (value as? Long) ?: return@mapNotNull null
-            if (now - at <= staleAfterMs) address to at else null
+            if (System.currentTimeMillis() - at <= staleAfterMs) address to at else null
         }.toMap()
     }
 

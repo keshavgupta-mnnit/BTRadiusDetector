@@ -19,7 +19,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.foundation.layout.Column
@@ -41,8 +40,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onDeviceClick: (String) -> Unit
 ) {
-    val context = LocalContext.current
-    val viewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.factory(context))
+    val viewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.factory())
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) { viewModel.refresh() }
