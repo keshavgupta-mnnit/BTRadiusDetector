@@ -11,7 +11,7 @@ import androidx.compose.material.icons.rounded.Watch
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.kglabs28.btradiusdetector.utils.Dimens
-import com.kglabs28.btradiusdetector.utils.SignalUtils
+import com.kglabs28.btradiusdetector.domain.signal.SignalEngine
 import com.kglabs28.btradiusdetector.utils.Strings
 import com.kglabs28.btradiusdetector.utils.scaled
 
@@ -35,7 +35,7 @@ fun TrackingInfoSection(
         }
         // Buzz surface is type-driven, never hardcoded per device: only
         // classes with a buzzable companion show the button, with their label.
-        SignalUtils.buzzLabelFor(state.majorClass)?.let { buzzLabel ->
+        SignalEngine.buzzLabelFor(state.majorClass)?.let { buzzLabel ->
             Spacer(modifier = Modifier.height(Dimens.spacingMd.scaled()))
             OutlineActionButton(
                 label = buzzLabel,

@@ -27,7 +27,7 @@ import com.kglabs28.btradiusdetector.domain.model.NearbyDevice
 import com.kglabs28.btradiusdetector.ui.theme.BTRadiusDetectorTheme
 import com.kglabs28.btradiusdetector.ui.theme.SonarGreen
 import com.kglabs28.btradiusdetector.utils.Dimens
-import com.kglabs28.btradiusdetector.utils.SignalUtils
+import com.kglabs28.btradiusdetector.domain.signal.SignalEngine
 import com.kglabs28.btradiusdetector.utils.Strings
 import com.kglabs28.btradiusdetector.utils.scaled
 
@@ -103,7 +103,7 @@ fun NearbyDeviceRow(
 
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = SignalUtils.formattedDbm(device.rssi),
+                    text = SignalEngine.formattedDbm(device.rssi),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
                     fontSize = Dimens.textCaption,

@@ -1,7 +1,6 @@
 package com.kglabs28.btradiusdetector.ui.components
 
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
@@ -27,8 +26,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -44,7 +41,7 @@ import com.kglabs28.btradiusdetector.ui.theme.SonarCyan
 import com.kglabs28.btradiusdetector.ui.theme.SonarGreen
 import com.kglabs28.btradiusdetector.utils.Constants
 import com.kglabs28.btradiusdetector.utils.Dimens
-import com.kglabs28.btradiusdetector.utils.SignalUtils
+import com.kglabs28.btradiusdetector.domain.signal.SignalEngine
 import com.kglabs28.btradiusdetector.utils.Strings
 import com.kglabs28.btradiusdetector.utils.scaled
 
@@ -80,10 +77,10 @@ fun RadarTracker(
                 history = history
             )
             CompassRing(heading = animatedHeading)
-            PulsingDot(scale = SignalUtils.dotScale(rssi))
+            PulsingDot(scale = SignalEngine.dotScale(rssi))
             if (peakRssi > Constants.RSSI_FLOOR) {
                 Text(
-                    text = SignalUtils.formattedBestSignal(peakHeading),
+                    text = SignalEngine.formattedBestSignal(peakHeading),
                     color = SonarGreen,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = Dimens.textBestSignal,
@@ -96,7 +93,7 @@ fun RadarTracker(
         }
         if (peakRssi > Constants.RSSI_FLOOR) {
             Text(
-                text = SignalUtils.turnGuidance(peakHeading, heading),
+                text = SignalEngine.guidance(peakHeading, heading),
                 color = SonarGreen,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = Dimens.textCaption,
@@ -119,17 +116,6 @@ fun RadarView(
     history: List<SignalPoint> = emptyList(),
     modifier: Modifier = Modifier
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "RadarSweep")
-    val sweepRotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(Constants.RADAR_SWEEP_DURATION_MS, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "SweepRotation"
-    )
-
     Canvas(modifier = modifier.size(Dimens.radarSize.scaled())) {
         val center = Offset(size.width / 2, size.height / 2)
         val maxRadius = size.width / 2 - Dimens.spacingSm.scaled().toPx()
@@ -155,6 +141,7 @@ fun RadarView(
             strokeWidth = Dimens.borderWidthThin.scaled().toPx()
         )
 
+        // Best-direction wedge: the single direction cue on this radar.
         if (peakRssi > Constants.RSSI_FLOOR) {
             val relative = peakHeading - currentHeading
             rotate(relative - Constants.BEST_WEDGE_OFFSET_DEG, center) {
@@ -169,48 +156,29 @@ fun RadarView(
             }
         }
 
-        rotate(sweepRotation, center) {
-            drawArc(
-                brush = Brush.sweepGradient(
-                    0.8f to Color.Transparent,
-                    1.0f to SonarGreen.copy(alpha = Dimens.alphaSweep),
-                    center = center
-                ),
-                startAngle = 0f,
-                sweepAngle = 360f,
-                useCenter = true,
-                size = size,
-                topLeft = Offset.Zero
-            )
-        }
-
         history.forEachIndexed { index, point ->
             val alpha = (1f - (index / Constants.SIGNAL_HISTORY_MAX.toFloat()).coerceIn(0f, 1f)) * Dimens.alphaHistory
-            val angleRad = Math.toRadians((point.heading - currentHeading - 90).toDouble())
-            val markerRadius = maxRadius * ((point.rssi - Constants.RSSI_FLOOR).coerceIn(0, Constants.RSSI_RANGE_SPAN) / Constants.RSSI_RANGE_SPAN.toFloat())
+            val markerRadius = maxRadius * SignalEngine.rssiToProgress(point.rssi)
             drawCircle(
                 color = SonarGreen.copy(alpha = alpha),
                 radius = 3.dp.toPx(),
-                center = Offset(
-                    center.x + markerRadius * kotlin.math.cos(angleRad).toFloat(),
-                    center.y + markerRadius * kotlin.math.sin(angleRad).toFloat()
+                center = SignalEngine.pointAt(
+                    center, markerRadius,
+                    SignalEngine.relativeBearing(point.heading, currentHeading)
                 ),
                 style = Fill
             )
         }
 
         if (peakRssi > Constants.RSSI_FLOOR) {
-            val angleRad = Math.toRadians((peakHeading - currentHeading - 90).toDouble())
-            val pr = maxRadius * 0.92f
-            val peak = Offset(
-                center.x + pr * kotlin.math.cos(angleRad).toFloat(),
-                center.y + pr * kotlin.math.sin(angleRad).toFloat()
-            )
+            val bearing = SignalEngine.relativeBearing(peakHeading, currentHeading)
+            val peak = SignalEngine.pointAt(center, maxRadius * 0.92f, bearing)
             drawCircle(color = SonarGreen.copy(alpha = Dimens.alphaPeakHalo), radius = 6.dp.toPx(), center = peak)
             drawCircle(color = SonarGreen, radius = 3.5.dp.toPx(), center = peak)
 
             // Bearing needle on the outer rim: unambiguous "walk this way" pointer.
-            val dir = Offset(kotlin.math.cos(angleRad).toFloat(), kotlin.math.sin(angleRad).toFloat())
+            val angle = SignalEngine.angleRad(bearing)
+            val dir = Offset(kotlin.math.cos(angle).toFloat(), kotlin.math.sin(angle).toFloat())
             val perp = Offset(-dir.y, dir.x)
             val tip = center + dir * maxRadius
             val baseCenter = center + dir * (maxRadius - 10.dp.toPx())
@@ -237,29 +205,26 @@ fun RadarView(
 fun CompassRing(heading: Float, modifier: Modifier = Modifier) {
     Box(modifier = modifier.size(Dimens.compassRingSize.scaled()), contentAlignment = Alignment.Center) {
         Canvas(modifier = Modifier.fillMaxSize()) {
+            val center = Offset(size.width / 2, size.height / 2)
             val radius = size.width / 2 - 12.dp.toPx()
             for (deg in 0 until 360 step Constants.COMPASS_TICK_STEP_DEG) {
                 val isMajor = deg % 90 == 0
-                val angleRad = Math.toRadians((deg - heading).toDouble() - 90)
                 val outer = radius
                 val inner = radius - (if (isMajor) 8.dp else 4.dp).toPx()
                 drawLine(
                     color = SonarCyan.copy(alpha = if (isMajor) 0.8f else 0.3f),
-                    start = Offset(
-                        size.width / 2 + inner * kotlin.math.cos(angleRad).toFloat(),
-                        size.height / 2 + inner * kotlin.math.sin(angleRad).toFloat()
-                    ),
-                    end = Offset(
-                        size.width / 2 + outer * kotlin.math.cos(angleRad).toFloat(),
-                        size.height / 2 + outer * kotlin.math.sin(angleRad).toFloat()
-                    ),
+                    start = SignalEngine.pointAt(center, inner, deg - heading),
+                    end = SignalEngine.pointAt(center, outer, deg - heading),
                     strokeWidth = (if (isMajor) 2.dp else 1.dp).toPx()
                 )
             }
         }
+        // Labels ride the rotating ring but stay upright: the ring positions
+        // them, the counter-rotation keeps glyphs readable at every heading.
         for (deg in 0 until 360 step Constants.COMPASS_LABEL_STEP_DEG) {
+            val rotation = deg - heading
             Box(
-                modifier = Modifier.fillMaxSize().rotate(deg - heading),
+                modifier = Modifier.fillMaxSize().rotate(rotation),
                 contentAlignment = Alignment.TopCenter
             ) {
                 val cardinal = when (deg) {
@@ -270,17 +235,64 @@ fun CompassRing(heading: Float, modifier: Modifier = Modifier) {
                     else -> null
                 }
                 if (cardinal != null) {
-                    Text(text = cardinal, color = ContentWhite, fontWeight = FontWeight.Bold, fontSize = Dimens.textRadarLabel)
+                    Text(
+                        text = cardinal, color = ContentWhite, fontWeight = FontWeight.Bold, fontSize = Dimens.textRadarLabel,
+                        modifier = Modifier.rotate(-rotation)
+                    )
                 } else {
                     Text(
                         text = "$deg",
                         color = ContentWhite.copy(alpha = Dimens.alphaSubtleText),
                         fontWeight = FontWeight.SemiBold,
-                        fontSize = Dimens.textTiny
+                        fontSize = Dimens.textTiny,
+                        modifier = Modifier.rotate(-rotation)
                     )
                 }
             }
         }
+    }
+}
+
+/**
+ * Center bearing arrow: replaces the plain dot once a peak exists, so the
+ * middle of the radar points where the needle points. Falls back to the
+ * pulsing dot while searching.
+ */
+@Composable
+fun BearingArrow(
+    peakHeading: Float,
+    currentHeading: Float,
+    scale: Float,
+    modifier: Modifier = Modifier
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "ArrowPulse")
+    val glowScale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.4f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(Constants.DOT_PULSE_DURATION_MS, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "ArrowGlow"
+    )
+    Canvas(modifier = modifier.size(Dimens.pulsingGlowSize.scaled())) {
+        val center = Offset(size.width / 2, size.height / 2)
+        val base = (size.width / 2) * scale
+        drawCircle(color = SonarGreen.copy(alpha = Dimens.alphaGlow), radius = base * glowScale)
+        rotate(SignalEngine.relativeBearing(peakHeading, currentHeading), center) {
+            val tip = center + Offset(0f, -base)
+            val half = base * 0.45f
+            drawPath(
+                Path().apply {
+                    moveTo(tip.x, tip.y)
+                    lineTo(center.x + half, center.y + half)
+                    lineTo(center.x - half, center.y + half)
+                    close()
+                },
+                color = SonarGreen
+            )
+        }
+        drawCircle(color = ContentWhite.copy(alpha = Dimens.alphaDotCenter), radius = base * 0.3f)
     }
 }
 

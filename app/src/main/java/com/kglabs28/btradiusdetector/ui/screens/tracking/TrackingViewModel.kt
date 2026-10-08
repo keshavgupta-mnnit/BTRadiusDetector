@@ -7,8 +7,8 @@ import com.kglabs28.btradiusdetector.BTRadiusDetectorApp
 import com.kglabs28.btradiusdetector.data.AlertSettingsRepository
 import com.kglabs28.btradiusdetector.data.local.AppDatabase
 import com.kglabs28.btradiusdetector.domain.model.SignalPoint
+import com.kglabs28.btradiusdetector.domain.signal.SignalEngine
 import com.kglabs28.btradiusdetector.domain.usecase.TrackSignalUseCase
-import com.kglabs28.btradiusdetector.utils.AppUtils
 import com.kglabs28.btradiusdetector.utils.BluetoothUtils
 import com.kglabs28.btradiusdetector.utils.CompassUtils
 import com.kglabs28.btradiusdetector.utils.Constants
@@ -69,7 +69,7 @@ class TrackingViewModel(
             isConnected = device?.isConnected ?: true,
             majorClass = device?.deviceClass ?: 0,
             heading = heading,
-            cardinal = AppUtils.getCardinalDirection(heading),
+            cardinal = SignalEngine.cardinal(heading),
             rssi = rssi,
             battery = battery,
             peakRssi = snapshot.peakRssi,

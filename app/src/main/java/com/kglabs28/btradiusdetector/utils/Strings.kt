@@ -39,6 +39,7 @@ object Strings {
     const val proximityMedium = "Medium"
     const val proximityWeak = "Weak"
     const val facingBestSignal = "Facing best signal — walk that way"
+    const val turnAround = "Turn around — best signal is behind you"
     fun turnLeft(degrees: Int) = "Turn $degrees° left"
     fun turnRight(degrees: Int) = "Turn $degrees° right"
     fun findingTitle(deviceName: String) = "Finding: $deviceName"

@@ -15,7 +15,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.kglabs28.btradiusdetector.ui.theme.BTRadiusDetectorTheme
 import com.kglabs28.btradiusdetector.utils.Constants
 import com.kglabs28.btradiusdetector.utils.Dimens
-import com.kglabs28.btradiusdetector.utils.SignalUtils
+import com.kglabs28.btradiusdetector.domain.signal.SignalEngine
 import com.kglabs28.btradiusdetector.utils.scaled
 
 /**
@@ -27,8 +27,8 @@ fun SegmentedSignalBar(
     modifier: Modifier = Modifier,
     segments: Int = Constants.SIGNAL_SEGMENTS
 ) {
-    val filled = SignalUtils.filledSegments(rssi, segments)
-    val barColor = SignalUtils.proximityColor(rssi)
+    val filled = SignalEngine.filledSegments(rssi, segments)
+    val barColor = SignalEngine.proximityColor(rssi)
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(Dimens.signalBarSpacing.scaled())

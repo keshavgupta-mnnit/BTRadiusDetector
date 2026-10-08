@@ -96,7 +96,6 @@ object Dimens {
     const val alphaRingFaint = 0.22f
     const val alphaCrosshair = 0.15f
     const val alphaWedge = 0.28f
-    const val alphaSweep = 0.25f
     const val alphaHistory = 0.45f
     const val alphaPeakHalo = 0.5f
     const val alphaDotCenter = 0.85f

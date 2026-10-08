@@ -22,7 +22,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.kglabs28.btradiusdetector.ui.theme.BTRadiusDetectorTheme
 import com.kglabs28.btradiusdetector.ui.theme.SonarGreen
 import com.kglabs28.btradiusdetector.utils.Dimens
-import com.kglabs28.btradiusdetector.utils.SignalUtils
+import com.kglabs28.btradiusdetector.domain.signal.SignalEngine
 import com.kglabs28.btradiusdetector.utils.Strings
 import com.kglabs28.btradiusdetector.utils.scaled
 
@@ -31,7 +31,7 @@ import com.kglabs28.btradiusdetector.utils.scaled
  */
 @Composable
 fun SignalStrengthCard(rssi: Int, modifier: Modifier = Modifier) {
-    val label = SignalUtils.proximityLabel(rssi)
+    val label = SignalEngine.proximityLabel(rssi)
     AppCard(modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.padding(
@@ -63,7 +63,7 @@ fun SignalStrengthCard(rssi: Int, modifier: Modifier = Modifier) {
                 )
             }
             Text(
-                SignalUtils.formattedDbm(rssi),
+                SignalEngine.formattedDbm(rssi),
                 style = MaterialTheme.typography.labelMedium,
                 fontSize = Dimens.textCaptionSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = Dimens.alphaSubtleText)

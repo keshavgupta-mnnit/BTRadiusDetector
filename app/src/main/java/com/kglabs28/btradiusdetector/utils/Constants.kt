@@ -1,8 +1,9 @@
 package com.kglabs28.btradiusdetector.utils
 
 object Constants {
-    // Signal strength thresholds (dBm)
-    const val RSSI_HOT = -60
+    // Signal strength thresholds (dBm). Calibrated for LE-link RSSI which
+    // reads lower than classic: side-by-side buds sit around -65..-70.
+    const val RSSI_HOT = -70
     const val RSSI_WARM = -80
     const val RSSI_FLOOR = -100
 
@@ -28,7 +29,6 @@ object Constants {
     const val SIGNAL_SEGMENTS = 20
     const val SIGNAL_HISTORY_MAX = 20
     const val RADAR_RINGS = 4
-    const val RADAR_SWEEP_DURATION_MS = 5_000
     const val DOT_PULSE_DURATION_MS = 1_200
     const val COMPASS_TICK_STEP_DEG = 6
     const val COMPASS_LABEL_STEP_DEG = 30
@@ -42,6 +42,7 @@ object Constants {
     const val SCAN_RETRY_DELAY_MS = 3_000L
     const val NEARBY_SNAPSHOT_MS = 1_000L
     const val GUIDANCE_DEAD_ZONE_DEG = 10f
+    const val TURN_AROUND_DEG = 150f
 
     // Live-link RSSI polling (no magic numbers in repository)
     const val GATT_POLL_MS = 2_000L
